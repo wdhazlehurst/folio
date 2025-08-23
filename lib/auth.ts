@@ -1,3 +1,4 @@
+
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "../generated/prisma";
@@ -23,7 +24,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
      * @param credentials Credentials containing email and password.
      * @returns `null` if credentials are invalid, otherwise returns user object.
      */
-    async authorize(credentials, request) {
+    async authorize(credentials) {
       if (!credentials?.email || !credentials?.password) {
         return null;
       }
@@ -51,7 +52,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   pages: {
-    signIn: "/login",
+    signIn: "/auth/login",
+    signOut: "/auth/logout",
+    newUser: "/auth/register",
+    error: "/auth/error", // Error code passed in query string as ?error=<error_code>
+  },
+
+  session: {
+    strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60, // 7 days
   },
 
   callbacks: {
