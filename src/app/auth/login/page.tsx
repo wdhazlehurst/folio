@@ -12,8 +12,10 @@ import {
   Paper,
   InputAdornment,
   IconButton,
+  Divider,
+  Stack,
 } from '@mui/material'
-import { Visibility, VisibilityOff } from '@mui/icons-material'
+import { Visibility, VisibilityOff, Google, Microsoft } from '@mui/icons-material'
 
 export default function LoginForm() {
   const router = useRouter()
@@ -47,24 +49,25 @@ export default function LoginForm() {
         justifyContent: 'center',
         minHeight: '100vh',
         backgroundColor: (theme) => theme.palette.background.default,
-        padding: 2,
+        padding: 3,
       }}
     >
       <Paper
-        elevation={6}
+        elevation={8}
         sx={{
-          p: 5,
-          maxWidth: 400,
+          p: 6,
           width: '100%',
+          maxWidth: 500,
           backgroundColor: (theme) => theme.palette.background.paper,
+          borderRadius: 3,
         }}
       >
-        <Typography variant="h5" component="h1" align="center" gutterBottom>
-          Welcome Back
+        <Typography variant="h4" component="h1" align="center" gutterBottom>
+          Log In
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
@@ -78,6 +81,7 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            size="medium"
           />
           <TextField
             label="Password"
@@ -87,6 +91,7 @@ export default function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            size="medium"
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -102,11 +107,36 @@ export default function LoginForm() {
             type="submit"
             variant="contained"
             fullWidth
-            sx={{ mt: 2, py: 1.5 }}
+            size="large"
+            sx={{ mt: 3, mb: 2, py: 1.5 }}
           >
-            Login
+            Log In
           </Button>
         </form>
+
+        <Divider sx={{ my: 3 }}>or</Divider>
+
+        <Stack spacing={2}>
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<Google />}
+            disabled
+            sx={{ textTransform: 'none' }}
+          >
+            Continue with Google (coming soon)
+          </Button>
+
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<Microsoft />}
+            disabled
+            sx={{ textTransform: 'none' }}
+          >
+            Continue with Microsoft (coming soon)
+          </Button>
+        </Stack>
       </Paper>
     </Box>
   )
