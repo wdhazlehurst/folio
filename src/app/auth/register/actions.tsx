@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import PrismaClient from "@prisma/client";
+import { prisma } from "@/lib/prisma"
 import bcrypt from "bcrypt";
 
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
         }
 
         // Ceheck if email is already registered
-        const existingUser = await new PrismaClient().user.findUnique({where: { email }});
+        const existingUser = await PrismaClient().user.findUnique({where: { email }});
         if (existingUser) {
             return NextResponse.json({ error: "Email already in use" }, { status: 409 });
         }
