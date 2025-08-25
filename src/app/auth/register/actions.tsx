@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"
+import { dbClient} from "@/lib/prisma"
 import bcrypt from "bcrypt";
 
 
@@ -16,8 +16,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
         }
 
-        // Ceheck if email is already registered
-        const existingUser = await PrismaClient().user.findUnique({where: { email }});
+        // Check if email is already registered
+        const existingUser = await dbClient.user.findUnique({where: { email }});
         if (existingUser) {
             return NextResponse.json({ error: "Email already in use" }, { status: 409 });
         }
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create the user
-        const user = await new PrismaClient().user.create({
+        const user = await new dbClient.user.create({
             data: {
                 email,
                 password: hashedPassword,
