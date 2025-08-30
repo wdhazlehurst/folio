@@ -1,11 +1,9 @@
-
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { dbClient } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import type { User } from "next-auth";
 
- 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     // https://next-auth.js.org/providers/credentials
@@ -14,38 +12,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
-    },
+      },
 
-    /**
-     * Authorization check against database credentials
-     * @param credentials Credentials containing email and password.
-     * @returns `null` if credentials are invalid, otherwise returns user object.
-     */
-    async authorize(credentials) {
-      if (!credentials?.email || !credentials?.password) {
-        return null;
-      }
+      /**
+       * Authorization check against database credentials
+       * @param credentials Credentials containing email and password.
+       * @returns `null` if credentials are invalid, otherwise returns user object.
+       */
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
 
-      if (typeof credentials.email !== "string" || typeof credentials.password !== "string") {
-        return null;
-      }
+        if (
+          typeof credentials.email !== "string" ||
+          typeof credentials.password !== "string"
+        ) {
+          return null;
+        }
 
-      const user = await dbClient.user.findUnique({
-        where: { email: credentials.email },
-      });
+        const user = await dbClient.user.findUnique({
+          where: { email: credentials.email },
+        });
 
-      if (!user) return null;
+        if (!user) return null;
 
-      const isValid = await bcrypt.compare(credentials.password, user.password);
-      if (!isValid) return null;
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password,
+        );
+        if (!isValid) return null;
 
-      // Any object returned will be saved in `user` property of JWT
-      return {
-        id: user.id,
-        email: user.email,
-      } as User;
-    },
-  }),
+        // Any object returned will be saved in `user` property of JWT
+        return {
+          id: user.id,
+          email: user.email,
+        } as User;
+      },
+    }),
   ],
 
   pages: {
@@ -75,6 +79,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.email = String(token.email);
       }
       return session;
-    }
-  }
-})
+    },
+  },
+});

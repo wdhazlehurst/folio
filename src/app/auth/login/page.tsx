@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import {
   Box,
   Button,
@@ -14,40 +14,45 @@ import {
   IconButton,
   Divider,
   Stack,
-} from '@mui/material'
-import { Visibility, VisibilityOff, Google, Microsoft } from '@mui/icons-material'
+} from "@mui/material";
+import {
+  Visibility,
+  VisibilityOff,
+  Google,
+  Microsoft,
+} from "@mui/icons-material";
 
 export default function LoginForm() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const res = await signIn('credentials', {
+    e.preventDefault();
+    const res = await signIn("credentials", {
       redirect: false,
       email,
       password,
-    })
+    });
 
     if (res?.error) {
-      setError(res.error)
+      setError(res.error);
     } else {
-      router.push('/')
+      router.push("/");
     }
-  }
+  };
 
-  const togglePasswordVisibility = () => setShowPassword((prev) => !prev)
+  const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
         backgroundColor: (theme) => theme.palette.background.default,
         padding: 3,
       }}
@@ -56,7 +61,7 @@ export default function LoginForm() {
         elevation={8}
         sx={{
           p: 6,
-          width: '100%',
+          width: "100%",
           maxWidth: 500,
           backgroundColor: (theme) => theme.palette.background.paper,
           borderRadius: 3,
@@ -85,7 +90,7 @@ export default function LoginForm() {
           />
           <TextField
             label="Password"
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             fullWidth
             margin="normal"
             value={password}
@@ -122,7 +127,7 @@ export default function LoginForm() {
             fullWidth
             startIcon={<Google />}
             disabled
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: "none" }}
           >
             Continue with Google (coming soon)
           </Button>
@@ -132,12 +137,12 @@ export default function LoginForm() {
             fullWidth
             startIcon={<Microsoft />}
             disabled
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: "none" }}
           >
             Continue with Microsoft (coming soon)
           </Button>
         </Stack>
       </Paper>
     </Box>
-  )
+  );
 }

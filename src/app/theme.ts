@@ -1,29 +1,29 @@
-'use client'
+"use client";
 
-import { createTheme } from '@mui/material/styles'
+import { createTheme } from "@mui/material/styles";
 
-export const getTheme = (mode: 'light' | 'dark') =>
+export const getTheme = (mode: "light" | "dark") =>
   createTheme({
     palette: {
       mode,
-      ...(mode === 'light'
+      ...(mode === "light"
         ? {
             primary: {
-              main: '#1976d2',
+              main: "#1976d2",
             },
             background: {
-              default: '#f4f6f8',
-              paper: '#fff',
+              default: "#f4f6f8",
+              paper: "#fff",
             },
           }
         : {
             primary: {
-              main: '#90caf9',
+              main: "#90caf9",
             },
             background: {
-              default: '#121212',
-              paper: '#1e1e1e',
+              default: "#121212",
+              paper: "#1e1e1e",
             },
           }),
     },
-  })
+  });
