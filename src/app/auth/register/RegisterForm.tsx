@@ -1,139 +1,83 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "@mantine/form";
 import {
-  Box,
-  TextField,
-  Button,
-  Alert,
+  Container,
   Paper,
-  Typography,
+  Title,
+  Text,
+  TextInput,
+  PasswordInput,
+  Button,
   Stack,
-  Divider,
-} from "@mui/material";
-import { Google, Microsoft } from "@mui/icons-material";
+} from "@mantine/core";
 import { registerUser } from "./actions";
 
-export default function RegisterForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+  const form = useForm({
+    initialValues: {
+      email: "",
+      password: "",
+    },
+
+    validate: {
+      email: (value) =>
+        /^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email",
+      password: (value) =>
+        value.length < 6 ? "Password must be at least 6 characters" : null,
+    },
+  });
+
+  const handleSubmit = async (values: typeof form.values) => {
     setLoading(true);
-
     try {
-      const result = await registerUser(email, password);
-
-      if (result.error) {
-        setError(result.error);
-      } else if (result.success) {
-        setSuccess(result.success);
-        setEmail("");
-        setPassword("");
-      }
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      setError("Something went wrong. Please try again.");
+      await registerUser(values.email, values.password);
+      alert("Registration successful!");
+      form.reset();
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      alert(error.message || "Registration failed");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
-    <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="65vh"
-      sx={{ backgroundColor: "background.default" }}
-    >
-      <Paper
-        elevation={4}
-        sx={{
-          p: 4,
-          width: "100%",
-          maxWidth: 400,
-          borderRadius: 3,
-        }}
-      >
-        <Box component="form" onSubmit={handleSubmit}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {success}
-            </Alert>
-          )}
+    <Container size="xs" py="xl">
+      <Paper shadow="md" radius="md" p="xl" withBorder>
+        <Title order={2} ta="center" mb="sm" fw={700}>
+          Create an Account
+        </Title>
 
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            variant="standard"
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Password"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            variant="standard"
-          />
+        <Text size="sm" c="dimmed" ta="center" mb="lg">
+          Sign up to get started with your new account
+        </Text>
 
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            sx={{ mt: 3, borderRadius: 2 }}
-            disabled={loading}
-          >
-            {loading ? "Registering..." : "Register"}
-          </Button>
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack>
+            <TextInput
+              label="Email"
+              placeholder="you@example.com"
+              required
+              {...form.getInputProps("email")}
+            />
 
-          <Divider sx={{ my: 3 }}>or</Divider>
+            <PasswordInput
+              label="Password"
+              placeholder="Enter your password"
+              required
+              {...form.getInputProps("password")}
+            />
 
-          <Stack spacing={2}>
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<Google />}
-              disabled
-              sx={{ textTransform: "none", borderRadius: 2 }}
-            >
-              Continue with Google (coming soon)
-            </Button>
-
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<Microsoft />}
-              disabled
-              sx={{ textTransform: "none", borderRadius: 2 }}
-            >
-              Continue with Microsoft (coming soon)
+            <Button type="submit" fullWidth loading={loading}>
+              Register
             </Button>
           </Stack>
-        </Box>
+        </form>
       </Paper>
-    </Box>
+    </Container>
   );
 }

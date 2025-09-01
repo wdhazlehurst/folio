@@ -1,6 +1,7 @@
 "use client";
 
 import { Container, Box, Typography } from "@mui/material";
+import { Text } from "@mantine/core";
 import RegisterForm from "./RegisterForm";
 
 export default function RegisterPage() {
@@ -14,9 +15,6 @@ export default function RegisterPage() {
           alignItems: "center",
         }}
       >
-        <Typography component="h1" variant="h5" fontWeight="bold">
-          Create an Account
-        </Typography>
         <RegisterForm />
       </Box>
     </Container>
