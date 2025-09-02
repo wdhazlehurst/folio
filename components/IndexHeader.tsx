@@ -1,22 +1,10 @@
 "use client";
 
-import {
-  Box,
-  Burger,
-  Button,
-  Divider,
-  Drawer,
-  Group,
-  ScrollArea,
-  Text,
-  useMantineTheme,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Box, Button, Group, Text, useMantineTheme } from "@mantine/core";
 import ThemeToggler from "./ThemeToggler";
+import Link from "next/link";
 
 function IndexHeader() {
-  const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] =
-    useDisclosure(false);
   const theme = useMantineTheme();
 
   return (
@@ -34,32 +22,16 @@ function IndexHeader() {
           Folio
         </Text>
 
-        <Group visibleFrom="sm">
-          <Button variant="default">Log in</Button>
-          <Button>Sign up</Button>
+        <Group>
+          <Button variant="default" component={Link} href="/auth/login">
+            Log in
+          </Button>
+          <Button component={Link} href="/auth/register">
+            Sign up
+          </Button>
+          <ThemeToggler />
         </Group>
-
-        <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="sm" />
       </header>
-
-      <Drawer
-        opened={drawerOpened}
-        onClose={closeDrawer}
-        size="100%"
-        padding="md"
-        title="Navigation"
-        hiddenFrom="sm"
-        zIndex={1000000}
-      >
-        <ScrollArea h="calc(100vh - 80px)" mx="-md">
-          <Divider my="sm" />
-          <Group justify="center" grow pb="xl" px="md">
-            <Button variant="default">Log in</Button>
-            <Button>Sign up</Button>
-          </Group>
-        </ScrollArea>
-        <ThemeToggler />
-      </Drawer>
     </Box>
   );
 }

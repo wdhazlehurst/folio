@@ -3,22 +3,20 @@
 import { ActionIcon, useMantineColorScheme } from "@mantine/core";
 import { IconSun, IconMoonStars } from "@tabler/icons-react";
 
+
 export default function ThemeToggler() {
-  const { colorScheme, setColorScheme } = useMantineColorScheme({
-    keepTransitions: true,
-});
-  const dark = colorScheme === "dark";
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === "dark";
 
   return (
     <ActionIcon
-      onClick={() => setColorScheme(dark ? "light" : "dark")}
-      variant="outline"
-      color={dark ? "yellow" : "blue"}
+      onClick={() => setColorScheme(isDark ? "light" : "dark")}
+      variant="subtle"
       size="lg"
       radius="xl"
-      aria-label="Toggle color scheme"
+      aria-label="Toggle theme"
     >
-      {dark ? <IconSun size={20} /> : <IconMoonStars size={20} />}
+      {isDark ? <IconSun size={20} /> : <IconMoonStars size={20} />}
     </ActionIcon>
   );
 }

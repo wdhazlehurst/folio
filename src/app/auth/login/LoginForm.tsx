@@ -1,28 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useForm } from "@mantine/form";
 import {
-  Container,
   Paper,
   Title,
   Text,
   TextInput,
   PasswordInput,
-  Button,
   Stack,
+  Button,
+  Alert,
+  Container,
 } from "@mantine/core";
-import { registerUser } from "./actions";
 
-export default function RegisterPage() {
+export default function LoginForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm({
-    initialValues: {
-      email: "",
-      password: "",
-    },
-
+    initialValues: { email: "", password: "" },
     validate: {
       email: (value) =>
         /^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email",
@@ -33,28 +33,35 @@ export default function RegisterPage() {
 
   const handleSubmit = async (values: typeof form.values) => {
     setLoading(true);
-    try {
-      await registerUser(values.email, values.password);
-      alert("Registration successful!");
-      form.reset();
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      alert(error.message || "Registration failed");
-    } finally {
-      setLoading(false);
+    setError(null);
+
+    const res = await signIn("credentials", {
+      redirect: false,
+      email: values.email,
+      password: values.password,
+    });
+
+    if (res?.error) {
+      setError(res.error);
+    } else {
+      router.push("/");
     }
+
+    setLoading(false);
   };
 
   return (
     <Container size="xs" py="xl">
       <Paper shadow="md" radius="md" p="xl" withBorder>
         <Title order={2} ta="center" mb="sm" fw={700}>
-          Create an Account
+          Log In
         </Title>
 
         <Text size="sm" c="dimmed" ta="center" mb="lg">
-          Sign up to get started with your new account
+          Enter your credentials to access your account
         </Text>
+
+        {error && <Alert color="red" mb="md">{error}</Alert>}
 
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
@@ -73,7 +80,7 @@ export default function RegisterPage() {
             />
 
             <Button type="submit" fullWidth loading={loading}>
-              Register
+              Log In
             </Button>
           </Stack>
         </form>
