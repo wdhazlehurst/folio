@@ -1,7 +1,7 @@
 "use client";
 
 import { Container, Text, Title, Stack, Paper } from "@mantine/core";
-import Header from "../../components/IndexHeader";
+import Header from "@/components/IndexHeader";
 
 export default function Page() {
   return (

@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@components/*": ["./components/*"]
+      "@/components/*": ["./components/*"],
+      "@/auth": ["./src/lib/auth.ts"],
     }
   },
   "include": [

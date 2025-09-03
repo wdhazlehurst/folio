@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm } from "@mantine/form";
 import {
   Paper,
@@ -15,6 +14,7 @@ import {
   Alert,
   Container,
 } from "@mantine/core";
+import { loginWithCredentials } from "./actions";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -35,16 +35,12 @@ export default function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      email: values.email,
-      password: values.password,
-    });
+    const result = await loginWithCredentials(values.email, values.password);
 
-    if (res?.error) {
-      setError(res.error);
+    if (!result.success) {
+      setError(result.message);
     } else {
-      router.push("/");
+      router.push("/dashboard");
     }
 
     setLoading(false);

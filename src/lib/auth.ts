@@ -10,7 +10,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
+        email: { label: "Email", type: "text", placeholder: "you@email.com" },
         password: { label: "Password", type: "password" },
       },
 
@@ -56,9 +56,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/auth/login",
     signOut: "/auth/logout",
     newUser: "/auth/register",
-    error: "/auth/error", // Error code passed in query string as ?error=<error_code>
   },
 
+  /** Session management using JSON Web Tokens */
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60, // 7 days

@@ -1,25 +1,10 @@
-"use client";
+import Providers from "./providers";
 
-import {
-  MantineProvider,
-  localStorageColorSchemeManager
-} from "@mantine/core";
-import "@mantine/core/styles.css";
-import { ReactNode } from "react";
-
-const colorSchemeManager = localStorageColorSchemeManager({
-  key: "mantine-color-scheme", // Stored in localStorage
-})
-
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-      </head>
       <body>
-        <MantineProvider colorSchemeManager={colorSchemeManager}>
-          {children}
-        </MantineProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
