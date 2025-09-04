@@ -5,7 +5,6 @@ import { signOut } from "next-auth/react";
 import { IconLogout } from "@tabler/icons-react";
 import ThemeToggler from "@/components/ThemeToggler";
 
-
 export default function LoggedInHeader() {
   const handleLogout = () => {
     signOut({ callbackUrl: "/" });
