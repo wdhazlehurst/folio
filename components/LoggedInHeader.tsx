@@ -11,12 +11,10 @@ export default function LoggedInHeader() {
   };
 
   return (
-    <Group h="100%" px="md" justify="space-between">
-      {/* Left side */}
+    <Group px="md" justify="space-between" h="100%">
       <Title order={4}>Folio</Title>
 
-      {/* Right side */}
-      <Group visibleFrom="sm">
+      <Group>
         <Button
           variant="default"
           onClick={handleLogout}

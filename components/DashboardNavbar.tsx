@@ -8,6 +8,9 @@ import {
 } from "@tabler/icons-react";
 import { Code, Group } from "@mantine/core";
 import classes from "@/css/NavbarSimple.module.css";
+import packageJson from "../package.json";
+
+const appVersion = packageJson.version;
 
 const data = [
   { link: "", label: "Dashboard", icon: IconHome },
@@ -38,12 +41,10 @@ export function DashboardNavbar() {
 
   return (
     <nav className={classes.navbar}>
-      <div className={classes.navbarMain}>
-        <Group className={classes.header} justify="space-between">
-          <Code fw={700}>v0.0.1</Code>
-        </Group>
-        {links}
-      </div>
+      <div className={classes.navbarMain}>{links}</div>
+      <Group className={classes.header} justify="space-between">
+        <Code fw={700}>v{appVersion}</Code>
+      </Group>
     </nav>
   );
 }

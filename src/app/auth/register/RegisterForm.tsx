@@ -42,7 +42,6 @@ export default function RegisterPage() {
         console.error("Registration error:", error);
         alert(error.message || "Registration failed");
       }
-      
     } finally {
       setLoading(false);
     }

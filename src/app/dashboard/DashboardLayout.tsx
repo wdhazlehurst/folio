@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, Group } from "@mantine/core";
+import { AppShell } from "@mantine/core";
 import LoggedInHeader from "@/components/LoggedInHeader";
 import { DashboardNavbar } from "@/components/DashboardNavbar";
 
@@ -12,13 +12,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <AppShell
       header={{ height: 60 }}
-      navbar={{ width: 200, breakpoint: "sm" }}
+      navbar={{ width: 175, breakpoint: "md" }}
       padding="md"
     >
       <AppShell.Header>
-        <Group h="100%">
-          <LoggedInHeader />
-        </Group>
+        <LoggedInHeader />
       </AppShell.Header>
       <AppShell.Navbar>
         <DashboardNavbar />
