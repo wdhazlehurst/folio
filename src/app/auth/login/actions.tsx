@@ -14,11 +14,20 @@ export async function loginWithCredentials(email: string, password: string) {
         case "CredentialsSignin":
           return { success: false, message: "Invalid email or password." };
         case "AccessDenied":
-          return { success: false, message: "You do not have permission to sign in." };
+          return {
+            success: false,
+            message: "You do not have permission to sign in.",
+          };
         case "Configuration":
-          return { success: false, message: "Authentication is not configured properly." };
+          return {
+            success: false,
+            message: "Authentication is not configured properly.",
+          };
         default:
-          return { success: false, message: "Something went wrong. Please try again." };
+          return {
+            success: false,
+            message: "Something went wrong. Please try again.",
+          };
       }
     }
 

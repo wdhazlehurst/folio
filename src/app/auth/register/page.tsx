@@ -1,6 +1,6 @@
 "use client";
 
-import { Container, Stack, Paper } from "@mantine/core";
+import { Container, Stack } from "@mantine/core";
 import RegisterForm from "./RegisterForm";
 
 export default function RegisterPage() {

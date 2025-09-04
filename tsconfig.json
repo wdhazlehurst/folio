@@ -22,6 +22,7 @@
       "@/*": ["./src/*"],
       "@/components/*": ["./components/*"],
       "@/auth": ["./src/lib/auth.ts"],
+      "@/css/*": ["./css/*"]
     }
   },
   "include": [

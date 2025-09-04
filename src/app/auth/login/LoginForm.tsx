@@ -57,7 +57,11 @@ export default function LoginForm() {
           Enter your credentials to access your account
         </Text>
 
-        {error && <Alert color="red" mb="md">{error}</Alert>}
+        {error && (
+          <Alert color="red" mb="md">
+            {error}
+          </Alert>
+        )}
 
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
