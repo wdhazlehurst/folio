@@ -37,9 +37,12 @@ export default function RegisterPage() {
       await registerUser(values.email, values.password);
       alert("Registration successful!");
       form.reset();
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      alert(error.message || "Registration failed");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Registration error:", error);
+        alert(error.message || "Registration failed");
+      }
+      
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import LoginForm from "./LoginForm";
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
