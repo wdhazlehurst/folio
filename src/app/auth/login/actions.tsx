@@ -12,7 +12,7 @@ export async function loginWithCredentials(email: string, password: string) {
     if (!res || res.error) {
       switch (res?.error) {
         case "CredentialsSignin":
-          return { success: false, message: "Invalid email or password." };
+          return { success: false, message: "Invalid Credentials." };
         case "AccessDenied":
           return {
             success: false,
@@ -21,7 +21,7 @@ export async function loginWithCredentials(email: string, password: string) {
         case "Configuration":
           return {
             success: false,
-            message: "Authentication is not configured properly.",
+            message: "Could not retrieve details. Please try again.",
           };
         default:
           return {
