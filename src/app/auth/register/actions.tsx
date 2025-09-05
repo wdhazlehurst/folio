@@ -6,10 +6,9 @@ import bcrypt from "bcrypt";
 import { SALT_ROUNDS, INVALID_INPUT_ERROR } from "@/constants";
 import { signIn } from "next-auth/react";
 import { validateEmail, validatePassword } from "@/lib/validators";
-import { Prisma } from "@prisma/client";
 
-type RegisterResult = 
-  | { ok: true; user: {id: number; email: string} }
+type RegisterResult =
+  | { ok: true; user: { id: number; email: string } }
   | { ok: false; error: string };
 
 /**
@@ -31,8 +30,8 @@ export async function registerUser(
     if (typeof email !== "string" || typeof password !== "string") {
       throw new UserInputError(INVALID_INPUT_ERROR);
     }
-    validateEmail(email)
-    validatePassword(password)
+    validateEmail(email);
+    validatePassword(password);
 
     // Check if email is already registered
     const existingUser = await dbClient.user.findUnique({ where: { email } });
@@ -60,13 +59,6 @@ export async function registerUser(
     //alert error to user
     if (error instanceof UserInputError) {
       return { ok: false, error: error.message };
-    }
-    
-    // for prisma errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2002") {
-        return { ok: false, error: "Email already in use" };
-      }
     }
 
     return { ok: false, error: "Registration failed" };

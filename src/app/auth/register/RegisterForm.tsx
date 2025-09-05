@@ -11,12 +11,14 @@ import {
   PasswordInput,
   Button,
   Stack,
+  Alert,
 } from "@mantine/core";
 import { registerUser } from "./actions";
 import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -34,14 +36,14 @@ export default function RegisterPage() {
 
   const handleSubmit = async (values: typeof form.values) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await registerUser(values.email, values.password);
-      
+
       if (!res.ok) {
-        console.error("Registration Failed | ", res.error);
-        alert(res.error);
-        setLoading(false);
-        return
+        console.error("Registration Error: ", res.error);
+        setError(res.error);
+        return;
       }
 
       alert("Registration successful");
@@ -69,6 +71,12 @@ export default function RegisterPage() {
         <Text size="sm" c="dimmed" ta="center" mb="lg">
           Sign up to get started with your new account
         </Text>
+
+        {error && (
+          <Alert color="red" mb="md">
+            {error}
+          </Alert>
+        )}
 
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
