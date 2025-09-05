@@ -13,6 +13,7 @@ import {
   Stack,
 } from "@mantine/core";
 import { registerUser } from "./actions";
+import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -37,13 +38,22 @@ export default function RegisterPage() {
       const res = await registerUser(values.email, values.password);
       
       if (!res.ok) {
-        console.error("Registration Error: ", res.error);
+        console.error("Registration Failed | ", res.error);
         alert(res.error);
+        setLoading(false);
         return
       }
 
       alert("Registration successful");
-      form.reset();
+      await signIn("credentials", {
+        redirect: true,
+        email: values.email,
+        password: values.password,
+        callbackUrl: "/dashboard",
+      })
+    } catch (error) {
+      console.error("Unexpected error", error);
+      alert("Something went wrong");
     } finally {
       setLoading(false);
     }
