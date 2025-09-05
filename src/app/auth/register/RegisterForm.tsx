@@ -34,14 +34,16 @@ export default function RegisterPage() {
   const handleSubmit = async (values: typeof form.values) => {
     setLoading(true);
     try {
-      await registerUser(values.email, values.password);
-      alert("Registration successful!");
-      form.reset();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Registration error:", error);
-        alert(error.message || "Registration failed");
+      const res = await registerUser(values.email, values.password);
+      
+      if (!res.ok) {
+        console.error("Registration Error: ", res.error);
+        alert(res.error);
+        return
       }
+
+      alert("Registration successful");
+      form.reset();
     } finally {
       setLoading(false);
     }

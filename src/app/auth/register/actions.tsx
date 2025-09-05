@@ -1,9 +1,16 @@
 "use server";
 
 import { dbClient } from "@/lib/prisma";
+import { UserInputError } from "@/lib/errors";
 import bcrypt from "bcrypt";
 import { SALT_ROUNDS, INVALID_INPUT_ERROR } from "@/constants";
 import { signIn } from "next-auth/react";
+import { validateEmail, validatePassword } from "@/lib/validators";
+import { Prisma } from "@prisma/client";
+
+type RegisterResult = 
+  | { ok: true; user: {id: number; email: string} }
+  | { ok: false; error: string };
 
 /**
  * API route to handle user registration.
@@ -15,19 +22,22 @@ import { signIn } from "next-auth/react";
 export async function registerUser(
   email: string,
   password: string,
-): Promise<{ id: string; email: string }> {
+): Promise<RegisterResult> {
   try {
+    // Validation
     if (!email || !password) {
-      throw new Error("Email and Password are required");
+      throw new UserInputError("Email and Password are required");
     }
     if (typeof email !== "string" || typeof password !== "string") {
-      throw new Error(INVALID_INPUT_ERROR);
+      throw new UserInputError(INVALID_INPUT_ERROR);
     }
+    validateEmail(email)
+    validatePassword(password)
 
     // Check if email is already registered
     const existingUser = await dbClient.user.findUnique({ where: { email } });
     if (existingUser) {
-      throw new Error("Email already in use");
+      throw new UserInputError("Email already in use");
     }
 
     // Hash the password
@@ -43,10 +53,23 @@ export async function registerUser(
     });
 
     // Return user data
-    return { id: user.id, email: user.email };
-  } catch (error) {
+    return { ok: true, user };
+  } catch (error: unknown) {
     console.error("Error registering user:", error);
-    throw new Error("Error registering user");
+
+    //alert error to user
+    if (error instanceof UserInputError) {
+      return { ok: false, error: error.message };
+    }
+    
+    // for prisma errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return { ok: false, error: "Email already in use" };
+      }
+    }
+
+    return { ok: false, error: "Registration failed" };
   }
 }
 
