@@ -31,7 +31,11 @@ model ExpenseCategory {
   id            Int @id @default(autoincrement())
   title         String @db.VarChar(32)
   description   String @db.VarChar(128)
+  userId        Int
+  user          User  @relation(fields: [userId], references: [id])
   expenses      Expense[]
+
+  @@unique([title, userId])
 }
 
 model Expense {
