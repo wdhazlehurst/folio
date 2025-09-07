@@ -52,7 +52,7 @@ export default function RegisterPage() {
         email: values.email,
         password: values.password,
         callbackUrl: "/dashboard",
-      })
+      });
     } catch (error) {
       console.error("Unexpected error", error);
       alert("Something went wrong");

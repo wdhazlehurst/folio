@@ -36,7 +36,7 @@ export async function registerUser(
     // Check if email is already registered
     const existingUser = await dbClient.user.findUnique({ where: { email } });
     if (existingUser) {
-      return { ok: false, error: "Email already in use"};
+      return { ok: false, error: "Email already in use" };
     }
 
     // Hash the password

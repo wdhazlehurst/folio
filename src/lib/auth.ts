@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { dbClient } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import type { User } from "next-auth";
+import { redirect } from "next/navigation";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -85,3 +86,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+/**
+ * Check user has a required role while signed in using session
+ * @param allowedRoles List of required roles that grant access
+ * @returns `session` if allowed, redirects if not authorized
+ */
+export async function requireRole(allowedRoles: string[]) {
+  const session = await auth();
+
+  if (!session || !session.user?.role) {
+    redirect("/auth/login");
+  }
+
+  if (
+    !allowedRoles.includes("*") &&
+    !allowedRoles.includes(session.user.role)
+  ) {
+    redirect("/unauthorized"); // TODO Change this
+  }
+
+  return session;
+}
