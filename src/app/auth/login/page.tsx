@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import LoginForm from "./LoginForm";
+import Header from "@/components/IndexHeader";
 
 export default function LoginPage() {
   const { status } = useSession();
@@ -17,5 +18,10 @@ export default function LoginPage() {
 
   if (status === "loading") return null; // or spinner
 
-  return <LoginForm />;
+  return (
+    <>
+      <Header showLogin={false} />
+      <LoginForm />
+    </>
+  )
 }
