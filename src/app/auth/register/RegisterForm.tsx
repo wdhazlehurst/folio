@@ -19,7 +19,7 @@ import {
   Grid,
   SimpleGrid,
   Skeleton,
-  Divider
+  Divider,
 } from "@mantine/core";
 import { registerUser } from "./actions";
 import { signIn } from "next-auth/react";
@@ -28,6 +28,7 @@ import { IconX, IconCheck } from "@tabler/icons-react";
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);  // Used in successful creation
 
   const form = useForm({
     initialValues: {
@@ -55,7 +56,8 @@ export default function RegisterPage() {
         return;
       }
 
-      alert("Registration successful");
+      setError(null);
+      setMessage("Registration successful! Redirecting...")
       await signIn("credentials", {
         redirect: true,
         email: values.email,
@@ -64,7 +66,7 @@ export default function RegisterPage() {
       });
     } catch (error) {
       console.error("Unexpected error", error);
-      alert("Something went wrong");
+      setError("Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -127,6 +129,11 @@ export default function RegisterPage() {
         {error && (
           <Alert color="red" mb="md">
             {error}
+          </Alert>
+        )}
+        {message && (
+          <Alert color="green" mb="md">
+            {message}
           </Alert>
         )}
       <Grid gutter="xl">
