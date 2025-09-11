@@ -1,6 +1,6 @@
 export interface Expense {
     id: string;
-    userId: string;
+    userId?: string;
     amount: number;
     category: string;
     description?: string;
@@ -29,12 +29,4 @@ export interface ExpenseCategory {
     id: string;
     title: string;
     description?: string;
-}
-
-export interface Expense {
-    id: string;
-    title: string;
-    description?: string;
-    category: string;
-    date: Date;
 }

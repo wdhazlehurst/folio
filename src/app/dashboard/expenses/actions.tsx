@@ -56,7 +56,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
         id: e.id,
         title: e.title,
         amount: Number(e.amount),
-        category: e.category.title,
-        date: e.date.toISOString(),
+        category: e.category ? e.category.title : "error",
+        date: e.date,
     }));
 }
