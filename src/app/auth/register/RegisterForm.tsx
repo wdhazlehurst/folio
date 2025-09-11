@@ -17,8 +17,6 @@ import {
   Progress,
   Group,
   Grid,
-  SimpleGrid,
-  Skeleton,
   Divider,
 } from "@mantine/core";
 import { registerUser } from "./actions";

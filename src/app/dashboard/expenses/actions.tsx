@@ -5,7 +5,7 @@ import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 
 
-async function userHasCategory(userId: number, category: string): Promise<boolean> {
+async function userHasCategory(userId: string, category: string): Promise<boolean> {
     const categories = dbClient.expenseCategory.findFirst({
         where: {
             title: category,

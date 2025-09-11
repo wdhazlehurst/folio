@@ -22,7 +22,7 @@ export async function userHasCategory(userId: string, category: string): Promise
     return count > 0;
 }
 
-export async function addCategory(data: NewExpenseCategory): Promise<CategoryResult | undefined> {
+export async function addCategory(data: NewExpenseCategory): Promise<CategoryResult> {
     const userId = await getUserId();
 
     if (!userId) {

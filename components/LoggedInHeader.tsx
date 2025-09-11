@@ -11,7 +11,7 @@ export default function LoggedInHeader() {
     signOut({ callbackUrl: "/" });
   };
 
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
   return (
     <Group px="md" justify="space-between" h="100%">
