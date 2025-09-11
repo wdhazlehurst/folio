@@ -113,7 +113,7 @@ export async function requireRole(allowedRoles: string[]) {
  * Extracts user ID from session token
  * @returns User ID number, or null if undetermined
  */
-export async function getUserId(): Promise<number | null> {
+export async function getUserId(): Promise<string | null> {
   const session = await auth();
 
   return session?.user?.id ?? null;

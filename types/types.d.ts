@@ -9,3 +9,11 @@ declare module "next-auth" {
     email: string;
   }
 }
+
+export type UserRegisterResult =
+  | { ok: true; user: { id: string; email: string; } }
+  | { ok: false; error: string };
+
+export type UserLoginResult =
+  | { ok: true }
+  | { ok: false; error: string };

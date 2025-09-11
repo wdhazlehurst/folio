@@ -4,12 +4,10 @@ import { dbClient } from "@/lib/prisma";
 import { UserInputError } from "@/lib/errors";
 import bcrypt from "bcrypt";
 import { SALT_ROUNDS, INVALID_INPUT_ERROR } from "@/constants";
+import { UserRegisterResult } from "@/types/types";
 import { signIn } from "next-auth/react";
 import { validateEmail, validatePassword } from "@/lib/validators";
 
-type RegisterResult =
-  | { ok: true; user: { id: number; email: string } }
-  | { ok: false; error: string };
 
 /**
  * API route to handle user registration.
@@ -21,7 +19,7 @@ type RegisterResult =
 export async function registerUser(
   email: string,
   password: string,
-): Promise<RegisterResult> {
+): Promise<UserRegisterResult> {
   try {
     // Validation
     if (!email || !password) {
