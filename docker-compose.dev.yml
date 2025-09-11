@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:17
+    image: postgres:latest
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -14,16 +14,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
-  app:
-    build: .
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/folio_dev"
-    ports:
-      - "3000:3000"
-    command: sh -c "prisma migrate deploy && npm run start"
 
 volumes:
   db_data:

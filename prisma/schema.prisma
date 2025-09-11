@@ -20,36 +20,36 @@ enum Role {
 }
 
 model User {
-  id            Int @id @default(autoincrement())
-  email         String @unique
+  id            String                @id @default(uuid())
+  email         String                @unique
   password      String
-  role          Role @default(USER)
+  role          Role                  @default(USER)
   expenses      Expense[]
   expenseCategories ExpenseCategory[] 
 }
 
 model ExpenseCategory {
-  id            Int @id @default(autoincrement())
-  title         String @db.VarChar(32)
-  description   String @db.VarChar(128)
-  userId        Int
-  user          User  @relation(fields: [userId], references: [id])
+  id            String    @id @default(uuid())
+  title         String    @db.VarChar(32)
+  description   String    @db.VarChar(128)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
   expenses      Expense[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([title, userId])
+  @@index([userId])
 }
 
 model Expense {
-  id            Int @id @default(autoincrement())
-  title         String @db.VarChar(32)
-  amount        Decimal @default(0.00)
-  user          User @relation(fields: [userId], references: [id])
-  userId        Int
-  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
-  categoryId    Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String            @id @default(uuid())
+  title         String            @db.VarChar(32)
+  amount        Decimal           @db.Money
+  userId        String
+  user          User              @relation(fields: [userId], references: [id])
+  categoryId    String?
+  category      ExpenseCategory?  @relation(fields: [categoryId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 }
-
-
-// TODO: Add indexing for fields that are frequently accessed
