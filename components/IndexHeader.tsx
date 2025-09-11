@@ -4,7 +4,12 @@ import { Box, Button, Group, Text, useMantineTheme } from "@mantine/core";
 import ThemeToggler from "./ThemeToggler";
 import Link from "next/link";
 
-function IndexHeader() {
+interface HeaderProps {
+  showLogin?: boolean;
+  showSignup?: boolean;
+}
+
+function IndexHeader({ showLogin = true, showSignup = true, }: HeaderProps) {
   const theme = useMantineTheme();
 
   return (
@@ -23,12 +28,12 @@ function IndexHeader() {
         </Text>
 
         <Group>
-          <Button variant="default" component={Link} href="/auth/login">
+          {showLogin && <Button variant="default" component={Link} href="/auth/login">
             Log in
-          </Button>
-          <Button component={Link} href="/auth/register">
+          </Button>}
+          {showSignup && <Button component={Link} href="/auth/register">
             Sign up
-          </Button>
+          </Button>}
           <ThemeToggler />
         </Group>
       </header>
