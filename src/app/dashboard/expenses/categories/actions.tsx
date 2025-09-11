@@ -9,8 +9,8 @@ type CategoryResult =
     | { ok: true }
     | { ok: false; message: string };
 
-async function userHasCategory(userId: number, category: string): Promise<boolean> {
-    const count = dbClient.expenseCategory.count({
+export async function userHasCategory(userId: string, category: string): Promise<boolean> {
+    const count = await dbClient.expenseCategory.count({
         where: {
             title: {
                 equals: category,
@@ -29,13 +29,13 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
         redirect("/auth/login");
     }
 
-    const hasCategory = userHasCategory(userId, data.title);
-    if (!hasCategory) {
+    const hasCategory = await userHasCategory(userId, data.title);
+    if (hasCategory) {
         return { ok: false, message: "Category already exists" };
     }
 
     try {
-        const newCategory = dbClient.expenseCategory.create({
+        const newCategory = await dbClient.expenseCategory.create({
             data: {
                 title: data.title,
                 description: data.description,
@@ -49,6 +49,23 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
     }
 
     return { ok: true };
-    
-    
+}
+
+export async function getUserExpenseCategories() {
+    const userId = await getUserId();
+
+    if (!userId) {
+        redirect("/auth/login");
+    }
+
+    const categories = dbClient.expenseCategory.findMany({
+        where: { userId },
+        select: {
+            id: true,
+            title: true,
+        },
+    });
+
+    return categories;
+
 }
