@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import DashboardShell from "@/components/DashboardShell";
 
 export default async function DashboardLayout({
   children,
@@ -8,5 +9,5 @@ export default async function DashboardLayout({
   // Ensure user is logged in
   await requireRole(["*"]);
 
-  return <section>{children}</section>;
+  return <DashboardShell>{children}</DashboardShell>;
 }
