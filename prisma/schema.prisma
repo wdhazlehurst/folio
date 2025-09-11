@@ -50,6 +50,7 @@ model Expense {
   user          User              @relation(fields: [userId], references: [id])
   categoryId    String?
   category      ExpenseCategory?  @relation(fields: [categoryId], references: [id])
+  date          DateTime          @default(now())
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 }

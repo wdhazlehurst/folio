@@ -12,6 +12,7 @@ export interface Expense {
  * Backend fills in userId + id automatically
  */
 export interface NewExpense {
+    title: string;
     amount: number;
     category: string;
     description?: string;
@@ -22,4 +23,18 @@ export interface NewExpense {
 export interface NewExpenseCategory {
     title: string;
     description: string;
+}
+
+export interface ExpenseCategory {
+    id: string;
+    title: string;
+    description?: string;
+}
+
+export interface Expense {
+    id: string;
+    title: string;
+    description?: string;
+    category: string;
+    date: Date;
 }

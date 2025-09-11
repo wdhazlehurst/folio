@@ -1,6 +1,6 @@
 "use server";
 
-import type { NewExpenseCategory } from "@/types/expense";
+import type { NewExpenseCategory, ExpenseCategory } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -9,17 +9,17 @@ type CategoryResult =
     | { ok: true }
     | { ok: false; message: string };
 
-export async function userHasCategory(userId: string, category: string): Promise<boolean> {
-    const count = await dbClient.expenseCategory.count({
+export async function getCategoryId(userId: string, title: string): Promise<string | null> {
+    const category = await dbClient.expenseCategory.findFirst({
         where: {
             title: {
-                equals: category,
+                equals: title,
                 mode: "insensitive",
             },
             userId: userId,
         }
     });
-    return count > 0;
+    return category ? category.id : null;
 }
 
 export async function addCategory(data: NewExpenseCategory): Promise<CategoryResult> {
@@ -29,7 +29,7 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
         redirect("/auth/login");
     }
 
-    const hasCategory = await userHasCategory(userId, data.title);
+    const hasCategory = await getCategoryId(userId, data.title);
     if (hasCategory) {
         return { ok: false, message: "Category already exists" };
     }
@@ -51,7 +51,7 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
     return { ok: true };
 }
 
-export async function getUserExpenseCategories() {
+export async function getUserExpenseCategories(): Promise<ExpenseCategory[] > {
     const userId = await getUserId();
 
     if (!userId) {
