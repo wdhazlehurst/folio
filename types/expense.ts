@@ -17,3 +17,9 @@ export interface NewExpense {
     description?: string;
     date: Date;
 }
+
+
+export interface NewExpenseCategory {
+    title: string;
+    description: string;
+}
