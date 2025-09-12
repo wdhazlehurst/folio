@@ -22,6 +22,8 @@ import {
 import { registerUser } from "./actions";
 import { signIn } from "next-auth/react";
 import { IconX, IconCheck } from "@tabler/icons-react";
+import { zodValidate } from "@/lib/zodMantine";
+import { registerSchema } from "@/lib/schemas";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -29,17 +31,8 @@ export default function RegisterPage() {
   const [message, setMessage] = useState<string | null>(null);  // Used in successful creation
 
   const form = useForm({
-    initialValues: {
-      email: "",
-      password: "",
-    },
-
-    validate: {
-      email: (value) =>
-        /^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email",
-      password: (value) =>
-        value.length < 6 ? "Password must be at least 6 characters" : null,
-    },
+    initialValues: { email: "", password: ""},
+    validate: zodValidate(registerSchema),
   });
 
   const handleSubmit = async (values: typeof form.values) => {
@@ -163,6 +156,7 @@ export default function RegisterPage() {
               label="Password"
               placeholder="Enter your password"
               required
+              error={form.errors.password}
             />
             <Stack
               align="stretch"

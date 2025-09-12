@@ -1,23 +1,21 @@
-import validator from "validator";
+import { emailSchema, passwordSchema } from "./schemas";
 import { UserInputError } from "./errors";
+// import { z } from "zod";
 
 export function validateEmail(email: string) {
-  if (!validator.isEmail(email)) {
-    throw new Error("Invalid Email Format");
+  const result = emailSchema.safeParse(email);
+  if (!result.success) {
+    const msg = result.error.issues[0]?.message ?? "Invalid Email Format";
+    throw new UserInputError(msg);
   }
+  return null;
 }
 
 export function validatePassword(password: string) {
-  if (password.length >= 16) {
-    return null;
+  const result = passwordSchema.safeParse(password);
+  if (!result.success) {
+    const msg = result.error.issues.map((i) => i.message).join(" ") || "Password does not meet complexity requirements";
+    throw new UserInputError(msg);
   }
-  const minLength = 6; //default frontend prevents the use of less than 6 chars, update to test errors if needed
-  const hasSpecial = /[^A-Za-z0-9]/.test(password); //Special chars
-  const hasUpper = /[A-Z]/.test(password); // Upper
-  const hasLower = /[a-z]/.test(password); // lower
-  const hasNumber = /[0-9]/.test(password); //number
-
-  if (password.length < minLength || !hasSpecial || !hasUpper || !hasLower || !hasNumber) {
-    throw new UserInputError("Password does not meet complexity requirements");
-  }
+  return null;
 }
