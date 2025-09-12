@@ -4,7 +4,7 @@ import { dbClient } from "@/lib/prisma";
 import { UserInputError } from "@/lib/errors";
 import bcrypt from "bcrypt";
 import { SALT_ROUNDS, INVALID_INPUT_ERROR } from "@/constants";
-import { UserRegisterResult } from "@/types/types";
+import { ActionResult } from "@/types/api";
 import { signIn } from "next-auth/react";
 import { validateEmail, validatePassword } from "@/lib/validators";
 
@@ -19,7 +19,7 @@ import { validateEmail, validatePassword } from "@/lib/validators";
 export async function registerUser(
   email: string,
   password: string,
-): Promise<UserRegisterResult> {
+): Promise<ActionResult> {
   try {
     // Validation
     if (!email || !password) {
@@ -49,8 +49,7 @@ export async function registerUser(
       },
     });
 
-    // Return user data
-    return { ok: true, user };
+    return { ok: true };
   } catch (error: unknown) {
     console.error("Error registering user:", error);
 
@@ -59,7 +58,7 @@ export async function registerUser(
       return { ok: false, error: error.message };
     }
 
-    return { ok: false, error: "Registration failed" };
+    return { ok: false, error: "Encountered an error." };
   }
 }
 

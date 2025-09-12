@@ -9,7 +9,16 @@ type CategoryResult =
     | { ok: true }
     | { ok: false; message: string };
 
-export async function getCategoryId(userId: string, title: string): Promise<string | null> {
+
+export async function getCategoryById(userId: string, id: string): Promise< string | null> {
+    const category = await dbClient.expenseCategory.findFirst({
+        where: { id }
+    });
+
+    return category ? category.id : null;
+}
+
+export async function getCategoryByTitle(userId: string, title: string): Promise<string | null> {
     const category = await dbClient.expenseCategory.findFirst({
         where: {
             title: {
@@ -29,7 +38,7 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
         redirect("/auth/login");
     }
 
-    const hasCategory = await getCategoryId(userId, data.title);
+    const hasCategory = await getCategoryByTitle(userId, data.title);
     if (hasCategory) {
         return { ok: false, message: "Category already exists" };
     }

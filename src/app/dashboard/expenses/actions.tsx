@@ -3,21 +3,28 @@
 import type { NewExpense, Expense } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
-import { getCategoryId } from "./categories/actions";
-import { Decimal } from "@prisma/client/runtime/library";
+import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
+import { ActionResult } from "@/types/api";
 
 
-export async function addExpense(data: NewExpense) {
+export async function addExpense(data: NewExpense): Promise<ActionResult> {
     const userId = await getUserId();
+    if (!userId) redirect("/auth/login");
 
-    if (!userId) {
-        return;
+    let parsedDate: Date | null = null;
+    if (data.date) {
+        const d = new Date(data.date);
+        if(!isNaN(d.getTime())) {
+            parsedDate = d;
+        } else {
+            return { ok: false, error: "Invalid Date" };
+        }
     }
-
-    const categoryId = await getCategoryId(userId, data.category);
+    console.log("CATEGORY:", data.category);
+    const categoryId = await getCategoryById(userId, data.category);
     if (!categoryId) {
-        return;
+        return { ok: false, error: "Selected Category doesn't exist" };
     }
 
     const newExpense = await dbClient.expense.create({
@@ -29,7 +36,9 @@ export async function addExpense(data: NewExpense) {
         },
     });
 
-    
+    if (!newExpense) return { ok: false, error: "Could not add expense" };
+
+    return { ok: true };
 }
 
 export async function getUserExpenses(): Promise<Expense[]> {

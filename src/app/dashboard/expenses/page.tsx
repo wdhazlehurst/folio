@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TextInput, NumberInput, Button, Select, Table, Group, Stack } from "@mantine/core";
-import { DatePicker } from "@mantine/dates";
+import { TextInput, NumberInput, Button, Select, Table, Group, Stack, Alert } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
 
@@ -14,19 +14,25 @@ interface Expense {
   date: Date;
 }
 
+interface Category {
+  value: string;
+  label: string;
+}
+
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
-  const [title, setTitle] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [title, setTitle] = useState('');
   const [amount, setAmount] = useState<string | number>('');
-  const [category, setCategory] = useState("");
-  const [date, setDate] = useState<Date | null>(new Date());
+  const [category, setCategory] = useState<string | null>(null);
+  const [date, setDate] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Load expenses and categories
   useEffect(() => {
     async function loadData() {
       const categoriesData = await getUserExpenseCategories();
-      setCategories(categoriesData.map((c) => ({ value: c.title, label: c.title })));
+      setCategories(categoriesData.map((c) => ({ value: c.id, label: c.title })));
 
       const expensesData = await getUserExpenses();
       setExpenses(expensesData);
@@ -36,28 +42,43 @@ export default function ExpensesPage() {
 
   // Handle adding a new expense
   const handleAddExpense = async () => {
-    if (!title || !amount || !category || !date) return;
+    if (!title || !amount || !category || !date) {
+      setError("Missing required field(s)");
+      return;
+    }
 
-    await addExpense({
+    const parsedAmount = typeof amount === "string" ? parseFloat(amount): amount;
+    let response = await addExpense({
       title,
-      amount,
+      amount: parsedAmount,
       category,
       date: date,
     });
+
+    if (response && !response.ok) {
+      setError(response.error);
+      return;
+    }
 
     // Refresh the expense list
     const updatedExpenses = await getUserExpenses();
     setExpenses(updatedExpenses);
 
     // Reset form
-    setTitle("");
-    setAmount(undefined);
-    setCategory("");
-    setDate(new Date());
+    setTitle('');
+    setAmount('');
+    setCategory(null);
+    setDate(null);
+    setError(null);
   };
 
   return (
-    <Stack spacing="md">
+    <Stack>
+      {error && (
+        <Alert color="red" mb="md">
+          {error}
+        </Alert>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -66,35 +87,34 @@ export default function ExpensesPage() {
       >
         <Group grow>
           <TextInput
-            placeholder="Expense title"
+            placeholder="Expense Title"
             label="Title"
             value={title}
             onChange={(e) => setTitle(e.currentTarget.value)}
             required
           />
           <NumberInput
-            placeholder="Amount"
+            placeholder="Expense Amount"
             label="Amount"
+            prefix="$"
             value={amount}
-            onChange={(value) => setAmount(value ?? '')}
+            onChange={setAmount}
             required
-            min={0}
             decimalScale={2}
+            fixedDecimalScale
+            allowNegative={false}
           />
           <Select
-            placeholder="Select category"
+            placeholder="Select Category"
             label="Category"
             data={categories}
             value={category}
             onChange={setCategory}
             required
           />
-          <DatePicker
-            placeholder="Select date"
-            label="Date"
+          <DatePickerInput
             value={date}
             onChange={setDate}
-            required
           />
           <Button type="submit">Add</Button>
         </Group>

@@ -17,7 +17,7 @@ export interface NewExpense {
     amount: number;
     category: string;
     description?: string;
-    date: Date;
+    date: string;
 }
 
 
