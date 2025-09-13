@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TextInput, NumberInput, Button, Select, Group, Alert } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { IconCurrencyDollar } from "@tabler/icons-react";
 
 interface Category {
   value: string;
@@ -56,6 +57,8 @@ export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProp
     setError(null);
   };
 
+    const currencyIcon = <IconCurrencyDollar size={20} stroke={1.5} />;
+
   return (
     <form onSubmit={handleSubmit}>
       {error && (
@@ -75,13 +78,14 @@ export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProp
         <NumberInput
           label="Amount"
           placeholder="Enter Amount"
-          prefix="$"
+          leftSection={currencyIcon}
           value={amount}
           onChange={setAmount}
           required
           decimalScale={2}
           fixedDecimalScale
           allowNegative={false}
+          hideControls
         />
         <Select
           label="Category"
