@@ -6,17 +6,18 @@ import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
 import { ActionResult } from "@/types/api";
+import { parse } from "path";
 
 
 export async function addExpense(data: NewExpense): Promise<ActionResult> {
     const userId = await getUserId();
     if (!userId) redirect("/auth/login");
 
-    let parsedDate: Date | null = null;
+    let parsedDate: string = "";
     if (data.date) {
         const d = new Date(data.date);
         if(!isNaN(d.getTime())) {
-            parsedDate = d;
+            parsedDate = d.toISOString();
         } else {
             return { ok: false, error: "Invalid Date" };
         }
@@ -27,17 +28,20 @@ export async function addExpense(data: NewExpense): Promise<ActionResult> {
         return { ok: false, error: "Selected Category doesn't exist" };
     }
 
-    const newExpense = await dbClient.expense.create({
-        data: {
-            title: data.title,
-            amount: data.amount,
-            userId: userId,
-            categoryId: categoryId,
-        },
-    });
-
-    if (!newExpense) return { ok: false, error: "Could not add expense" };
-
+    try {
+        const newExpense = await dbClient.expense.create({
+            data: {
+                title: data.title,
+                amount: data.amount,
+                userId: userId,
+                categoryId: categoryId,
+                date: parsedDate,
+            },
+        });
+        if (!newExpense) return { ok: false, error: "Could not add expense" };
+    } catch(error) {
+        return { ok: false, error: "Could not add expense, try again" };
+    }
     return { ok: true };
 }
 
