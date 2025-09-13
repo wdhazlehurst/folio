@@ -8,6 +8,15 @@ export interface Expense {
     date: Date;
 }
 
+/** Used in frontend components */
+export interface FrontendExpense {
+    id: string;
+    title: string;
+    amount: number;
+    category: string;
+    date: Date;
+}
+
 /**
  * Client -> Server: data required to create new expense
  * Backend fills in userId + id automatically

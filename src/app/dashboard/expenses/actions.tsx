@@ -1,14 +1,18 @@
 "use server";
 
-import type { NewExpense, Expense } from "@/types/expense";
+import type { NewExpense, FrontendExpense } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
 import { ActionResult } from "@/types/api";
-import { parse } from "path";
 
 
+/**
+ * Add an `Expense` to the user's database table
+ * @param data Expense data
+ * @returns Result of creating expense
+ */
 export async function addExpense(data: NewExpense): Promise<ActionResult> {
     const userId = await getUserId();
     if (!userId) redirect("/auth/login");
@@ -45,7 +49,11 @@ export async function addExpense(data: NewExpense): Promise<ActionResult> {
     return { ok: true };
 }
 
-export async function getUserExpenses(): Promise<Expense[]> {
+/**
+ * Retrieves all of a user's expenses in the database
+ * @returns List of `Expense` objects
+ */
+export async function getUserExpenses(): Promise<FrontendExpense[]> {
     const userId = await getUserId();
 
     if (!userId) {
@@ -69,7 +77,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
         id: e.id,
         title: e.title,
         amount: Number(e.amount),
-        category: e.category ? e.category.title : "error",
-        date: e.date,
+        category: e.category ? e.category.title : "N/A",
+        date: e.date.toISOString().split("T")[0],   // Remove timezone info
     }));
 }

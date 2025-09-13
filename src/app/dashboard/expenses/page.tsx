@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Table, Stack } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
+import ExpenseTable from "./ExpenseTable";
 import NewExpenseForm from "./NewExpenseForm";
 import "@mantine/dates/styles.css";
 
@@ -58,27 +59,8 @@ export default function ExpensesPage() {
   return (
     <Stack>
       <NewExpenseForm categories={categories} onSubmit={handleAddExpense} />
-
-      <Table striped highlightOnHover>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Amount</th>
-            <th>Category</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {expenses.map((e) => (
-            <tr key={e.id}>
-              <td>{e.title}</td>
-              <td>${e.amount.toFixed(2)}</td>
-              <td>{e.category}</td>
-              <td>{new Date(e.date).toLocaleDateString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <ExpenseTable></ExpenseTable>
+      
     </Stack>
   );
 }
