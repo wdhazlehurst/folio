@@ -5,6 +5,8 @@ import { TextInput, NumberInput, Button, Select, Table, Group, Stack, Alert } fr
 import { DatePickerInput } from "@mantine/dates";
 import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
+import '@mantine/dates/styles.css';
+
 
 interface Expense {
   id: string;
@@ -113,6 +115,7 @@ export default function ExpensesPage() {
             required
           />
           <DatePickerInput
+            label="Select Date"
             value={date}
             onChange={setDate}
           />
