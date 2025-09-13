@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   IconReceipt2,
   IconChartInfographic,
@@ -9,42 +8,47 @@ import {
 import { Code, Group } from "@mantine/core";
 import classes from "@/css/NavbarSimple.module.css";
 import packageJson from "../package.json";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const appVersion = packageJson.version;
 
 const data = [
-  { link: "", label: "Dashboard", icon: IconHome },
-  { link: "", label: "Expenses", icon: IconReceipt2 },
-  { link: "", label: "Worth", icon: IconUserDollar },
-  { link: "", label: "Charts", icon: IconChartInfographic },
-  { link: "", label: "Settings", icon: IconSettings },
+  { link: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
+  { link: "/dashboard/expenses", label: "Expenses", icon: IconReceipt2, exact: false },
+  { link: "/dashboard/worth", label: "Worth", icon: IconUserDollar, exact: false },
+  { link: "/dashboard/charts", label: "Charts", icon: IconChartInfographic, exact: false },
+  { link: "/dashboard/settings", label: "Settings", icon: IconSettings, exact: false },
 ];
 
 export function DashboardNavbar() {
-  const [active, setActive] = useState("Dashboard");
-
-  const links = data.map((item) => (
-    <a
-      className={classes.link}
-      data-active={item.label === active || undefined}
-      href={item.link}
-      key={item.label}
-      onClick={(event) => {
-        event.preventDefault();
-        setActive(item.label);
-      }}
-    >
-      <item.icon className={classes.linkIcon} stroke={1.5} />
-      <span>{item.label}</span>
-    </a>
-  ));
+  const pathname = usePathname();
 
   return (
     <nav className={classes.navbar}>
-      <div className={classes.navbarMain}>{links}</div>
+      <div className={classes.navbarMain}>
+        {data.map(({ link, label, icon: Icon }) => {
+          const isActive =
+            link === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname === link || pathname.startsWith('${link}/')
+           return (
+            <Link
+              key={label}
+              href={link}
+              className={classes.link}
+              data-active={isActive || undefined} // your CSS uses [data-active] to style the active link
+            >
+              <Icon className={classes.linkIcon} stroke={1.5} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </div>
       <Group className={classes.header} justify="space-between">
         <Code fw={700}>v{appVersion}</Code>
       </Group>
     </nav>
   );
+
 }
