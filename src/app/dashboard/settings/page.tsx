@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Group, Paper, Stack, TextInput, Title, Switch, Select, Divider, SegmentedControl } from "@mantine/core";
+import { Button, Group, Paper, Stack, TextInput, Title, Switch, Select, Divider, SegmentedControl, Text } from "@mantine/core";
 import DisplayNameSettingWithSession from "./DisplayNameSettingWithSession";
 
 export default function SettingsPage() {
@@ -19,13 +19,13 @@ export default function SettingsPage() {
                 <DisplayNameSettingWithSession />
             </Stack>
             <Group>
-                <text>Update Password</text>
+                <Text>Update Password</Text>
                 <Button type="submit" >
               Update
             </Button>
             </Group>
             <Group>
-                <text>Delete Account</text>
+                <Text>Delete Account</Text>
                 <Button type="submit" color="red" >
               Delete
             </Button>

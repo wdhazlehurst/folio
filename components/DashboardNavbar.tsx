@@ -31,7 +31,7 @@ export function DashboardNavbar() {
           const isActive =
             link === "/dashboard"
               ? pathname === "/dashboard"
-              : pathname === link || pathname.startsWith('${link}/')
+              : pathname === link || pathname.startsWith(`${link}/`);
            return (
             <Link
               key={label}
