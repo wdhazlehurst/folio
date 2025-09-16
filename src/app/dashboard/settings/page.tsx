@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Group, Paper, Stack, TextInput, Title, Switch, Select, Divider, SegmentedControl, Text } from "@mantine/core";
+import { Button, Group, Paper, Stack, TextInput, Title, Switch, Select, Divider, SegmentedControl, Text, } from "@mantine/core";
 import DisplayNameSettingWithSession from "./DisplayNameSettingWithSession";
 
 export default function SettingsPage() {
