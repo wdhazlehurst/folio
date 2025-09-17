@@ -6,6 +6,7 @@ import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
 import { Expense } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
+import CategoryManager from "./categories/ExpenseCategoryForm";
 import NewExpenseForm from "./NewExpenseForm";
 import "@mantine/dates/styles.css";
 
@@ -53,7 +54,7 @@ export default function ExpensesPage() {
     <Stack>
       <NewExpenseForm categories={categories} onSubmit={handleAddExpense} />
       <ExpenseTable data={expenses} />
-      
+      <CategoryManager/>
     </Stack>
   );
 }
