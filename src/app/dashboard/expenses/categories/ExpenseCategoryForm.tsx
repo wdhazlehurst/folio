@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "@mantine/form";
 import {
   Button,
@@ -10,11 +10,10 @@ import {
   TextInput,
   Text,
   Title,
-  Loader,
   Alert,
 } from "@mantine/core";
 
-import { addCategory, getUserExpenseCategories } from "./actions";
+import { addCategory } from "./actions";
 
 interface Category {
   id: string;
@@ -23,12 +22,11 @@ interface Category {
 }
 
 interface CategoryManagerProps {
-  title?: string;
+  categories: Category[];
+  onUpdate: () => void; // parent refresh function
 }
 
-export default function CategoryManager({ title = "Manage Categories" }: CategoryManagerProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function CategoryManager({ categories = [], onUpdate }: CategoryManagerProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,43 +37,35 @@ export default function CategoryManager({ title = "Manage Categories" }: Categor
     },
   });
 
-  async function loadCategories() {
-    setLoading(true);
-    const data = await getUserExpenseCategories();
-    setCategories(data);
-    setLoading(false);
-  }
-
   async function handleAdd(values: { title: string; description: string }) {
     setMessage(null);
     setError(null);
     const result = await addCategory(values);
+
     if (result.ok) {
-        form.reset();
-        setMessage("Category added successfully");
-        await loadCategories();
+      form.reset();
+      setMessage("Category added successfully");
+      onUpdate(); // Trigger parent refresh
     } else {
-        setError(result.message);
+      setError(result.message);
     }
   }
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
   return (
     <Stack gap="lg">
-      <Title order={2}>{title}</Title>
-      { message && (
+      <Title order={2}>Expense Categories</Title>
+
+      {message && (
         <Alert color="green" mb="md">
-            {message}
+          {message}
         </Alert>
       )}
-      { error && (
+      {error && (
         <Alert color="red" mb="md">
-            {error}
+          {error}
         </Alert>
       )}
+
       {/* Form */}
       <form onSubmit={form.onSubmit(handleAdd)}>
         <Group align="flex-end" gap="md">
@@ -94,16 +84,18 @@ export default function CategoryManager({ title = "Manage Categories" }: Categor
       </form>
 
       {/* List */}
-      {loading ? (
-        <Loader />
-      ) : categories.length === 0 ? (
+      {categories.length === 0 ? (
         <Text c="dimmed">No categories yet. Add one above.</Text>
       ) : (
         <Stack>
           {categories.map((c) => (
             <Card key={c.id} shadow="sm" padding="md" radius="md" withBorder>
               <Text fw={500}>{c.title}</Text>
-              {c.description && <Text size="sm" c="dimmed">{c.description}</Text>}
+              {c.description && (
+                <Text size="sm" c="dimmed">
+                  {c.description}
+                </Text>
+              )}
             </Card>
           ))}
         </Stack>

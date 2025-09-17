@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Stack } from "@mantine/core";
 import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
@@ -11,8 +11,9 @@ import NewExpenseForm from "./NewExpenseForm";
 import "@mantine/dates/styles.css";
 
 interface Category {
-  value: string;
-  label: string;
+  id: string;
+  title: string;
+  description?: string | null;
 }
 
 export default function ExpensesPage() {
@@ -20,17 +21,24 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Load expenses and categories
-  useEffect(() => {
-    async function loadData() {
-      const categoriesData = await getUserExpenseCategories();
-      setCategories(categoriesData.map((c) => ({ value: c.id, label: c.title })));
+  const refreshData = useCallback(async () => {
+    try {
+      const [categoriesData, expensesData] = await Promise.all([
+        getUserExpenseCategories(),
+        getUserExpenses(),
+      ]);
 
-      const expensesData = await getUserExpenses();
+      setCategories(categoriesData); // keep full objects
       setExpenses(expensesData);
+    } catch (error) {
+      setError("Failed to load data");
+      console.error(error);
     }
-    loadData();
   }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   const handleAddExpense = async (expenseData: {
     title: string;
@@ -45,16 +53,19 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Refresh the expense list
-    const updatedExpenses = await getUserExpenses();
-    setExpenses(updatedExpenses);
+    await refreshData(); // reload everything
   };
 
   return (
     <Stack>
-      <NewExpenseForm categories={categories} onSubmit={handleAddExpense} />
+      {error && <div>{error}</div>}
+      <NewExpenseForm
+        categories={categories.map((c) => ({ value: c.id, label: c.title }))}
+        onSubmit={handleAddExpense}
+        onUpdate={refreshData}
+      />
       <ExpenseTable data={expenses} />
-      <CategoryManager/>
+      <CategoryManager categories={categories} onUpdate={refreshData} />
     </Stack>
   );
 }

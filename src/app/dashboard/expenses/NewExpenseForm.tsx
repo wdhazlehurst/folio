@@ -18,9 +18,10 @@ interface ExpenseFormProps {
     category: string;
     date: Date; // send ISO string to backend
   }) => Promise<{ ok: boolean; error?: string } | void>;
+  onUpdate: () => void;
 }
 
-export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProps) {
+export default function NewExpenseForm({ categories, onSubmit, onUpdate }: ExpenseFormProps) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<string | number>("");
   const [category, setCategory] = useState<string | null>(null);
@@ -49,12 +50,15 @@ export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProp
       return;
     }
 
+    onUpdate(); // Refresh parent state
+
     // reset form
     setTitle("");
     setAmount("");
     setCategory(null);
     setDate(null);
     setError(null);
+
   };
 
     const currencyIcon = <IconCurrencyDollar size={20} stroke={1.5} />;
