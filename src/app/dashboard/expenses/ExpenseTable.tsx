@@ -12,7 +12,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import classes from "@/css/TableSort.module.css"
-import { FrontendExpense } from '@/types/expense';
+import { Expense } from '@/types/expense';
 import { getUserExpenses } from './actions';
 
 
@@ -41,22 +41,22 @@ function Th({ children, reversed, sorted, onSort }: ThProps) {
   );
 }
 
-function filterData(data: FrontendExpense[], search: string) {
+function filterData(data: Expense[], search: string) {
     const query = search.toLowerCase().trim();
 
     if (!data.length) return [];
 
     return data.filter((item) =>
         Object.keys(item).some((key) => {
-            const value = item[key as keyof FrontendExpense];
+            const value = item[key as keyof Expense];
             return String(value).toLowerCase().includes(query);
         })
     );
 }
 
 function sortData(
-  data: FrontendExpense[],
-  payload: { sortBy: keyof FrontendExpense | null; reversed: boolean; search: string }
+  data: Expense[],
+  payload: { sortBy: keyof Expense | null; reversed: boolean; search: string }
 ) {
   const { sortBy, reversed, search } = payload;
 
@@ -81,24 +81,25 @@ function sortData(
   });
 }
 
+interface ExpenseTableProps {
+    data: Expense[];
+}
 
-export default function ExpenseTable() {
+export default function ExpenseTable({ data }: ExpenseTableProps) {
   const [search, setSearch] = useState('');
-  const [data, setData] = useState<FrontendExpense[]>([]);
-  const [sortedData, setSortedData] = useState<FrontendExpense[]>([]);
-  const [sortBy, setSortBy] = useState<keyof FrontendExpense | null>(null);
+  const [sortedData, setSortedData] = useState<Expense[]>([]);
+  const [sortBy, setSortBy] = useState<keyof Expense | null>(null);
   const [reverseSortDirection, setReverseSortDirection] = useState(false);
 
   useEffect(() => {
     async function loadExpenses() {
         const expenses = await getUserExpenses();
-        setData(expenses);
         setSortedData(expenses);
     }
     loadExpenses();
   }, []);
 
-  const setSorting = (field: keyof FrontendExpense) => {
+  const setSorting = (field: keyof Expense) => {
     const reversed = field === sortBy ? !reverseSortDirection : false;
     setReverseSortDirection(reversed);
     setSortBy(field);
@@ -114,9 +115,9 @@ export default function ExpenseTable() {
   const rows = sortedData.map((row) => (
     <Table.Tr key={row.title}>
       <Table.Td>{row.title}</Table.Td>
-      <Table.Td>{row.amount}</Table.Td>
+      <Table.Td>{row.amount.toFixed(2)}</Table.Td>
       <Table.Td>{row.category}</Table.Td>
-      <Table.Td>{row.date}</Table.Td>
+      <Table.Td>{row.date.toISOString().split("T")[0]}</Table.Td>
     </Table.Tr>
   ));
 

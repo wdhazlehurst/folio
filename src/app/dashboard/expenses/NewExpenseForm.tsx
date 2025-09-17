@@ -16,7 +16,7 @@ interface ExpenseFormProps {
     title: string;
     amount: number;
     category: string;
-    date: string; // send ISO string to backend
+    date: Date; // send ISO string to backend
   }) => Promise<{ ok: boolean; error?: string } | void>;
 }
 
@@ -41,7 +41,7 @@ export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProp
       title,
       amount: parsedAmount,
       category,
-      date: date,
+      date: new Date(date),
     });
 
     if (response && !response.ok) {

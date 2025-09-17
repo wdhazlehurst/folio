@@ -4,17 +4,10 @@ import { useState, useEffect } from "react";
 import { Stack } from "@mantine/core";
 import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
+import { Expense } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
 import NewExpenseForm from "./NewExpenseForm";
 import "@mantine/dates/styles.css";
-
-interface Expense {
-  id: string;
-  title: string;
-  amount: number;
-  category: string;
-  date: Date;
-}
 
 interface Category {
   value: string;
@@ -24,6 +17,7 @@ interface Category {
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Load expenses and categories
   useEffect(() => {
@@ -41,25 +35,24 @@ export default function ExpensesPage() {
     title: string;
     amount: number;
     category: string;
-    date: string;
+    date: Date;
   }) => {
     const response = await addExpense(expenseData);
 
     if (response && !response.ok) {
-      return response;
+      setError(response.error);
+      return;
     }
 
     // Refresh the expense list
     const updatedExpenses = await getUserExpenses();
     setExpenses(updatedExpenses);
-
-    return { ok: true };
   };
 
   return (
     <Stack>
       <NewExpenseForm categories={categories} onSubmit={handleAddExpense} />
-      <ExpenseTable></ExpenseTable>
+      <ExpenseTable data={expenses} />
       
     </Stack>
   );

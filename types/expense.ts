@@ -1,21 +1,16 @@
-export interface Expense {
-    id: string;
-    userId?: string;
-    title: string;
-    amount: number;
-    category: string;
-    description?: string;
-    date: Date;
-}
+import * as z from "zod";
 
-/** Used in frontend components */
-export interface FrontendExpense {
-    id: string;
-    title: string;
-    amount: number;
-    category: string;
-    date: Date;
-}
+const ExpenseSchema = z.object({
+    id: z.uuid().optional(),
+    userId: z.uuid().optional(),
+    title: z.string(),
+    amount: z.number(),
+    category: z.string(),
+    categoryId: z.uuid().optional(),
+    description: z.string().optional(),
+    date: z.date(),
+})
+export type Expense = z.infer<typeof ExpenseSchema>;
 
 /**
  * Client -> Server: data required to create new expense

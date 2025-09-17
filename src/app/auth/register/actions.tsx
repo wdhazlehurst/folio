@@ -41,7 +41,7 @@ export async function registerUser(
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Create the user
-    const user = await dbClient.user.create({
+    await dbClient.user.create({
       data: {
         email,
         password: hashedPassword,
