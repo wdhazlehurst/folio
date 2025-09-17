@@ -104,6 +104,7 @@ export default function NewExpenseForm({ categories, onSubmit }: ExpenseFormProp
           clearable={true}
           firstDayOfWeek={0}
           highlightToday={true}
+          weekendDays={[]}
         />
         <Button type="submit">Add</Button>
       </Group>
