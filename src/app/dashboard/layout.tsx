@@ -1,6 +1,5 @@
 import { requireRole } from "@/lib/auth";
 import DashboardShell from "@/components/DashboardShell";
-import { Transition } from "@mantine/core";
 
 export default async function DashboardLayout({
   children,

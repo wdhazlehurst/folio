@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { SegmentedControl, TextInput, Group, Button, Text, Stack, } from "@mantine/core";
-import { StringValidation } from "zod/v3";
 import classes from '@/css/GradientSegmentedControl.module.css'
 
 type Mode = "email" | "custom";
@@ -18,7 +17,7 @@ export default function DisplayNameSetting({
 }) {
     const [mode, setMode] = useState<Mode>(initialMode);
     const [displayName, setDisplayName] = useState(initialDisplayName);
-    const [pending, startTransition] = useTransition();
+    const [pending] = useTransition();
 
     const isCustom = mode === "custom";
 

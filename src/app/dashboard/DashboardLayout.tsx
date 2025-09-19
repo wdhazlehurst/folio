@@ -1,16 +1,21 @@
-"use client";
+"use server";
 
-import { AppShell } from "@mantine/core";
+import { Title, Stack } from "@mantine/core";
+import { getDashBoardSummary } from "./summary-db";
+import StatsSegmentsExpenses from "./_widgets/StatsSegmentsExpenses";
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
+export default async function DashboardLayout() {
+  // month: true -> month-to-date; omit for all-time
+  const { total, topBar, categories } = await getDashBoardSummary({ month: true });
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <AppShell>
-      Coming soon!
-      {children}
-    </AppShell>
-  )
+    <Stack>
+      <Title>Dashboard</Title>
+    <>
+      <StatsSegmentsExpenses total={total} segments={topBar} />
+    </>
+    </Stack>
+  );
+
+
 };
