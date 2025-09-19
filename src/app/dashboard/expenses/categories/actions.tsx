@@ -51,7 +51,6 @@ export async function addCategory(data: NewExpenseCategory): Promise<CategoryRes
                 userId: userId,
             },
         });
-        console.log("New category created:", newCategory);
     } catch (error) {
         console.error("Error creating user:", error);
         return { ok: false, message: "Error adding category" };
