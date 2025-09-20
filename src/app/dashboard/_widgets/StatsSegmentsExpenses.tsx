@@ -58,11 +58,12 @@ export default function StatsSegmentsExpenses({
 
   const isUp = (deltaPct ?? 0) >= 0;
   const DeltaIcon = isUp ? IconArrowUpRight : IconArrowDownRight;
-  const deltaColor = isUp ? "teal" : "red";
+  const deltaColor = isUp ? "red" : "teal";
+  const deltaWay = isUp ? "increase" : "decrease"
   const deltaLabel =
     deltaPct == null ? null : (
       <Text c={deltaColor} fz="sm" fw={700} className={classes.statCount}>
-        <span>{Math.abs(deltaPct).toFixed(0)}%</span>
+        <span>{Math.abs(deltaPct).toFixed(0)}% {deltaWay} compared to last month</span>
         <DeltaIcon size={16} style={{ marginLeft: 4, marginBottom: 2 }} stroke={1.5} />
       </Text>
     );
@@ -75,11 +76,8 @@ export default function StatsSegmentsExpenses({
           <Text fz="sm" c="dimmed">{title}</Text>
           <Text fz="xl" fw={700}>{fmtMoney.format(total)}</Text>
         </div>
-        {deltaLabel}
       </Group>
-      <ThemeIcon variant="light" size="lg" className={classes.icon}>
-          <IconDeviceAnalytics stroke={1.5} />
-        </ThemeIcon>
+        {deltaLabel}
         </Group>
 
       <Text c="dimmed" fz="sm">{subtitle}</Text>
