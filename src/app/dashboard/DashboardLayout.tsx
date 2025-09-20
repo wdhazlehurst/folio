@@ -17,5 +17,4 @@ export default async function DashboardLayout() {
     </Stack>
   );
 
-
 };

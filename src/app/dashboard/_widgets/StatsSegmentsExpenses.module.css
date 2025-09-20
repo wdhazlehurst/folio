@@ -1,0 +1,18 @@
+.progressLabel {
+  color: var(--mantine-color-white);
+  font-weight: 700;
+}
+
+.stat {
+  padding-top: calc(var(--mantine-spacing-xs) / 2);
+  border-bottom: 3px solid transparent;
+}
+
+.statCount {
+  line-height: 1;
+  margin-left: var(--mantine-spacing-xs);
+}
+
+.icon {
+  color: var(--mantine-color-dimmed);
+}
