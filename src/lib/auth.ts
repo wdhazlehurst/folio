@@ -25,10 +25,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        if (
-          typeof credentials.email !== "string" ||
-          typeof credentials.password !== "string"
-        ) {
+        if (typeof credentials.email !== "string" || typeof credentials.password !== "string") {
           return null;
         }
 
@@ -38,10 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user) return null;
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password,
-        );
+        const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
         // Any object returned will be saved in `user` property of JWT
@@ -99,10 +93,7 @@ export async function requireRole(allowedRoles: string[]) {
     redirect("/auth/login");
   }
 
-  if (
-    !allowedRoles.includes("*") &&
-    !allowedRoles.includes(session.user.role)
-  ) {
+  if (!allowedRoles.includes("*") && !allowedRoles.includes(session.user.role)) {
     redirect("/unauthorized"); // TODO Change this
   }
 

@@ -28,10 +28,10 @@ import { registerSchema } from "@/lib/schemas";
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);  // Used in successful creation
+  const [message, setMessage] = useState<string | null>(null); // Used in successful creation
 
   const form = useForm({
-    initialValues: { email: "", password: ""},
+    initialValues: { email: "", password: "" },
     validate: zodValidate(registerSchema),
   });
 
@@ -48,7 +48,7 @@ export default function RegisterPage() {
       }
 
       setError(null);
-      setMessage("Registration successful! Redirecting...")
+      setMessage("Registration successful! Redirecting...");
       await signIn("credentials", {
         redirect: true,
         email: values.email,
@@ -65,7 +65,7 @@ export default function RegisterPage() {
 
   function PasswordRequirement({ meets, label }: { meets: boolean; label: string }) {
     return (
-      <Text component="div" c={meets ? 'teal' : 'red'} p="3" size="sm">
+      <Text component="div" c={meets ? "teal" : "red"} p="3" size="sm">
         <Center inline>
           {meets ? <IconCheck size={14} stroke={1.5} /> : <IconX size={14} stroke={1.5} />}
           <Box ml={7}>{label}</Box>
@@ -105,9 +105,7 @@ export default function RegisterPage() {
     .map((_, index) => (
       <Progress
         styles={{ section: { transitionDuration: "0ms" } }}
-        value={
-          value.length > 0 && index === 0 ? 100 : strength >= ((index + 1) /4) * 100 ? 100: 0
-        }
+        value={value.length > 0 && index === 0 ? 100 : strength >= ((index + 1) / 4) * 100 ? 100 : 0}
         color={strength > 80 ? "teal" : strength > 50 ? "yellow" : "red"}
         key={index}
         size={4}
@@ -127,77 +125,64 @@ export default function RegisterPage() {
             {message}
           </Alert>
         )}
-      <Grid gutter="xl">
-        <Grid.Col span={{ base: 12, md: 6 }}>
-        <Paper shadow="md" radius="md" p="lg" withBorder>
-        <Title order={2} ta="center" mb="sm" fw={700}>
-          Create an Account
-        </Title>
+        <Grid gutter="xl">
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Paper shadow="md" radius="md" p="lg" withBorder>
+              <Title order={2} ta="center" mb="sm" fw={700}>
+                Create an Account
+              </Title>
 
-        <Text size="sm" c="dimmed" ta="center" mb="lg">
-          Sign up to get started with your new account
-        </Text>
+              <Text size="sm" c="dimmed" ta="center" mb="lg">
+                Sign up to get started with your new account
+              </Text>
 
-        <form onSubmit={form.onSubmit(handleSubmit)}>
-          <Stack>
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              required
-              {...form.getInputProps("email")}
-            />
+              <form onSubmit={form.onSubmit(handleSubmit)}>
+                <Stack>
+                  <TextInput label="Email" placeholder="you@example.com" required {...form.getInputProps("email")} />
 
-            <PasswordInput
-              value={value}
-              onChange={(event) => {
-                setvalue(event.currentTarget.value);
-                form.setFieldValue("password", event.currentTarget.value);
-              }}
-              label="Password"
-              placeholder="Enter your password"
-              required
-              error={form.errors.password}
-            />
-            <Stack
-              align="stretch"
-              justify="flex-start"
-              gap="xs"
-              >
-              <Group gap={5} grow mt="xs" mb="md">
-                {bars1}
-              </Group>
-            </Stack>
+                  <PasswordInput
+                    value={value}
+                    onChange={(event) => {
+                      setvalue(event.currentTarget.value);
+                      form.setFieldValue("password", event.currentTarget.value);
+                    }}
+                    label="Password"
+                    placeholder="Enter your password"
+                    required
+                    error={form.errors.password}
+                  />
+                  <Stack align="stretch" justify="flex-start" gap="xs">
+                    <Group gap={5} grow mt="xs" mb="md">
+                      {bars1}
+                    </Group>
+                  </Stack>
 
-            <Button type="submit" fullWidth loading={loading}>
-              Register
-            </Button>
-          </Stack>
-        </form>
-      </Paper>
-      </Grid.Col>
-      <Grid.Col span={{ base: 12, md:6 }}>
-      <Paper radius="md" p="lg" >
-        <Title order={3} ta="center" mb="sm" fw={700}>
-          Password Requirements
-        </Title>
+                  <Button type="submit" fullWidth loading={loading}>
+                    Register
+                  </Button>
+                </Stack>
+              </form>
+            </Paper>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Paper radius="md" p="lg">
+              <Title order={3} ta="center" mb="sm" fw={700}>
+                Password Requirements
+              </Title>
 
-        <Text size="sm" c="dimmed" ta="center" mb="lg">
-          Meet either of our password requirements
-        </Text>
+              <Text size="sm" c="dimmed" ta="center" mb="lg">
+                Meet either of our password requirements
+              </Text>
 
-            <Stack
-              align="stretch"
-              justify="flex-start"
-              gap="xs"
-              >
-              <PasswordRequirement label="Has at least 6 characters" meets={value.length > 5} />
-              {checks}
-            </Stack>
-            <Divider label="Or" labelPosition="center" p="lg"/>
-        <PasswordRequirement label="Has at least 16 characters" meets={value.length >= 16} />
-      </Paper>
-      </Grid.Col>
-      </Grid>
+              <Stack align="stretch" justify="flex-start" gap="xs">
+                <PasswordRequirement label="Has at least 6 characters" meets={value.length > 5} />
+                {checks}
+              </Stack>
+              <Divider label="Or" labelPosition="center" p="lg" />
+              <PasswordRequirement label="Has at least 16 characters" meets={value.length >= 16} />
+            </Paper>
+          </Grid.Col>
+        </Grid>
       </Stack>
     </Container>
   );

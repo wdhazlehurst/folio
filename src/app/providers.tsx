@@ -12,9 +12,7 @@ const colorSchemeManager = localStorageColorSchemeManager({
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <MantineProvider colorSchemeManager={colorSchemeManager}>
-        {children}
-      </MantineProvider>
+      <MantineProvider colorSchemeManager={colorSchemeManager}>{children}</MantineProvider>
     </SessionProvider>
   );
 }

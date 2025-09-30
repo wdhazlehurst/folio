@@ -23,5 +23,5 @@ export default function LoginPage() {
       <Header showLogin={false} />
       <LoginForm />
     </>
-  )
+  );
 }

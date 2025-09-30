@@ -3,17 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "@mantine/form";
-import {
-  Paper,
-  Title,
-  Text,
-  TextInput,
-  PasswordInput,
-  Stack,
-  Button,
-  Alert,
-  Container,
-} from "@mantine/core";
+import { Paper, Title, Text, TextInput, PasswordInput, Stack, Button, Alert, Container } from "@mantine/core";
 import { loginWithCredentials } from "./actions";
 
 export default function LoginForm() {
@@ -24,10 +14,8 @@ export default function LoginForm() {
   const form = useForm({
     initialValues: { email: "", password: "" },
     validate: {
-      email: (value) =>
-        /^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email",
-      password: (value) =>
-        value.length < 6 ? "Password must be at least 6 characters" : null,
+      email: (value) => (/^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email"),
+      password: (value) => (value.length < 6 ? "Password must be at least 6 characters" : null),
     },
   });
 
@@ -65,12 +53,7 @@ export default function LoginForm() {
 
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              required
-              {...form.getInputProps("email")}
-            />
+            <TextInput label="Email" placeholder="you@example.com" required {...form.getInputProps("email")} />
 
             <PasswordInput
               label="Password"

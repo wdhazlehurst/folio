@@ -8,8 +8,8 @@ import classes from "./StatsSegmentsExpenses.module.css";
 import { IconDeviceAnalytics, IconArrowUpRight, IconArrowDownRight } from "@tabler/icons-react";
 
 type Segment = {
-  label: string;   // category name
-  value: number;   // category amount
+  label: string; // category name
+  value: number; // category amount
   percent: number; // percent
 };
 
@@ -43,7 +43,11 @@ export default function StatsSegmentsExpenses({
 
   // Display rows under the bar
   const descriptions = segments.map((s, i) => (
-    <Box key={s.label} style={{ borderBottomColor: `var(--mantine-color-${COLORS[i % COLORS.length]}-6)` }} className={classes.stat}>
+    <Box
+      key={s.label}
+      style={{ borderBottomColor: `var(--mantine-color-${COLORS[i % COLORS.length]}-6)` }}
+      className={classes.stat}
+    >
       <Text tt="uppercase" fz="xs" c="dimmed" fw={700}>
         {s.label}
       </Text>
@@ -59,11 +63,13 @@ export default function StatsSegmentsExpenses({
   const isUp = (deltaPct ?? 0) >= 0;
   const DeltaIcon = isUp ? IconArrowUpRight : IconArrowDownRight;
   const deltaColor = isUp ? "red" : "teal";
-  const deltaWay = isUp ? "increase" : "decrease"
+  const deltaWay = isUp ? "increase" : "decrease";
   const deltaLabel =
     deltaPct == null ? null : (
       <Text c={deltaColor} fz="sm" fw={700} className={classes.statCount}>
-        <span>{Math.abs(deltaPct).toFixed(0)}% {deltaWay} compared to last month</span>
+        <span>
+          {Math.abs(deltaPct).toFixed(0)}% {deltaWay} compared to last month
+        </span>
         <DeltaIcon size={16} style={{ marginLeft: 4, marginBottom: 2 }} stroke={1.5} />
       </Text>
     );
@@ -72,22 +78,26 @@ export default function StatsSegmentsExpenses({
     <Paper withBorder p="md" radius="md">
       <Group justify="space-between" mb="xs">
         <Group align="flex-end" gap="xs">
-        <div>
-          <Text fz="sm" c="dimmed">{title}</Text>
-          <Text fz="xl" fw={700}>{fmtMoney.format(total)}</Text>
-        </div>
-      </Group>
-        {deltaLabel}
+          <div>
+            <Text fz="sm" c="dimmed">
+              {title}
+            </Text>
+            <Text fz="xl" fw={700}>
+              {fmtMoney.format(total)}
+            </Text>
+          </div>
         </Group>
+        {deltaLabel}
+      </Group>
 
-      <Text c="dimmed" fz="sm">{subtitle}</Text>
+      <Text c="dimmed" fz="sm">
+        {subtitle}
+      </Text>
 
       <Progress.Root size={34} classNames={{ label: classes.progressLabel }} mt={30}>
         {progressSections.map((sec, idx) => (
           <Progress.Section key={sec.key} value={sec.value} color={sec.color}>
-            {sec.value > 10 && (
-              <Progress.Label>{segments[idx].percent.toFixed(0)}%</Progress.Label>
-            )}
+            {sec.value > 10 && <Progress.Label>{segments[idx].percent.toFixed(0)}%</Progress.Label>}
           </Progress.Section>
         ))}
       </Progress.Root>

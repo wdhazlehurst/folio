@@ -5,11 +5,7 @@
 }
 
 .indicator {
-  background-image: linear-gradient(
-    to right,
-    var(--mantine-color-pink-filled),
-    var(--mantine-color-blue-light-color)
-  );
+  background-image: linear-gradient(to right, var(--mantine-color-pink-filled), var(--mantine-color-blue-light-color));
 }
 
 .control {

@@ -18,16 +18,8 @@ export default function LoggedInHeader() {
       <Title order={4}>Folio</Title>
 
       <Group>
-        {session?.user ? (
-          <span>{session.user.name || session.user.email}</span>
-        ) : (
-          <span>Not signed in</span>
-        )}
-        <Button
-          variant="default"
-          onClick={handleLogout}
-          leftSection={<IconLogout size={16} />}
-        >
+        {session?.user ? <span>{session.user.name || session.user.email}</span> : <span>Not signed in</span>}
+        <Button variant="default" onClick={handleLogout} leftSection={<IconLogout size={16} />}>
           Logout
         </Button>
         <ThemeToggler />

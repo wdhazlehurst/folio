@@ -18,8 +18,8 @@ export function zodValidate<T extends z.ZodTypeAny>(schema: T) {
       // We default to a top-level field key (or "__form" for form-level errors)
       const key =
         issue.path && issue.path.length
-          ? String(issue.path[0])            // top-level field name
-          : "__form";                        // no specific field → show above the form
+          ? String(issue.path[0]) // top-level field name
+          : "__form"; // no specific field → show above the form
 
       // Only set the first error per field (common UX); remove this `if` to concatenate
       if (!out[key]) out[key] = issue.message;

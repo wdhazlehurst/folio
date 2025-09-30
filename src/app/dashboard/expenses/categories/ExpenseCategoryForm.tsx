@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "@mantine/form";
-import {
-  Button,
-  Card,
-  Group,
-  Stack,
-  TextInput,
-  Text,
-  Title,
-  Alert,
-} from "@mantine/core";
+import { Button, Card, Group, Stack, TextInput, Text, Title, Alert } from "@mantine/core";
 
 import { addCategory } from "./actions";
 
@@ -69,11 +60,7 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
       {/* Form */}
       <form onSubmit={form.onSubmit(handleAdd)}>
         <Group align="flex-end" gap="md">
-          <TextInput
-            label="Title"
-            placeholder="e.g. Groceries"
-            {...form.getInputProps("title")}
-          />
+          <TextInput label="Title" placeholder="e.g. Groceries" {...form.getInputProps("title")} />
           <TextInput
             label="Description (optional)"
             placeholder="e.g. Monthly food expenses"

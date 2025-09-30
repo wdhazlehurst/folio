@@ -8,7 +8,6 @@ import { ActionResult } from "@/types/api";
 import { signIn } from "next-auth/react";
 import { validateEmail, validatePassword } from "@/lib/validators";
 
-
 /**
  * API route to handle user registration.
  * @param email User's email address.
@@ -16,10 +15,7 @@ import { validateEmail, validatePassword } from "@/lib/validators";
  * @returns A promise that resolves to the created user data or an error message.
  * @throws Error if registration fails from validation, email already exists, or DB issues.
  */
-export async function registerUser(
-  email: string,
-  password: string,
-): Promise<ActionResult> {
+export async function registerUser(email: string, password: string): Promise<ActionResult> {
   try {
     // Validation
     if (!email || !password) {

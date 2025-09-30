@@ -58,10 +58,9 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
     setCategory(null);
     setDate(null);
     setError(null);
-
   };
 
-    const currencyIcon = <IconCurrencyDollar size={20} stroke={1.5} />;
+  const currencyIcon = <IconCurrencyDollar size={20} stroke={1.5} />;
 
   return (
     <form onSubmit={handleSubmit}>

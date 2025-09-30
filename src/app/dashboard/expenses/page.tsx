@@ -23,10 +23,7 @@ export default function ExpensesPage() {
 
   const refreshData = useCallback(async () => {
     try {
-      const [categoriesData, expensesData] = await Promise.all([
-        getUserExpenseCategories(),
-        getUserExpenses(),
-      ]);
+      const [categoriesData, expensesData] = await Promise.all([getUserExpenseCategories(), getUserExpenses()]);
 
       setCategories(categoriesData); // keep full objects
       setExpenses(expensesData);
@@ -40,12 +37,7 @@ export default function ExpensesPage() {
     refreshData();
   }, [refreshData]);
 
-  const handleAddExpense = async (expenseData: {
-    title: string;
-    amount: number;
-    category: string;
-    date: Date;
-  }) => {
+  const handleAddExpense = async (expenseData: { title: string; amount: number; category: string; date: Date }) => {
     const response = await addExpense(expenseData);
 
     if (response && !response.ok) {

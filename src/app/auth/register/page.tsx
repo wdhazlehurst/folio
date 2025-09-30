@@ -7,12 +7,12 @@ import Header from "@/components/IndexHeader";
 export default function RegisterPage() {
   return (
     <>
-    <Header showSignup={false} />
-    <Container size="xl" py="xl">
-      <Stack align="center" gap="xl">
-        <RegisterForm />
-      </Stack>
-    </Container>
+      <Header showSignup={false} />
+      <Container size="xl" py="xl">
+        <Stack align="center" gap="xl">
+          <RegisterForm />
+        </Stack>
+      </Container>
     </>
   );
 }

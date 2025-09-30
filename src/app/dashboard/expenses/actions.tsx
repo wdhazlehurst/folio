@@ -13,35 +13,34 @@ import { ActionResult } from "@/types/api";
  * @returns Result of creating expense
  */
 export async function addExpense(data: Expense): Promise<ActionResult> {
-    const userId = await getUserId();
-    if (!userId) redirect("/auth/login");
+  const userId = await getUserId();
+  if (!userId) redirect("/auth/login");
 
-    const d = new Date(data.date);
-    if(isNaN(d.getTime())) return { ok: false, error: "Invalid date" }
-    const parsedDate = d.toISOString();
-    const categoryId = await getCategoryById(userId, data.category);
-    if (!categoryId) {
-        return { ok: false, error: "Selected Category doesn't exist" };
-    }
+  const d = new Date(data.date);
+  if (isNaN(d.getTime())) return { ok: false, error: "Invalid date" };
+  const parsedDate = d.toISOString();
+  const categoryId = await getCategoryById(userId, data.category);
+  if (!categoryId) {
+    return { ok: false, error: "Selected Category doesn't exist" };
+  }
 
-    try {
-        const newExpense = await dbClient.expense.create({
-            data: {
-                title: data.title,
-                amount: data.amount,
-                userId: userId,
-                categoryId: categoryId,
-                date: parsedDate,
-            },
-        });
-        if (!newExpense) return { ok: false, error: "Could not add expense" };
-    } catch(error) {
-        console.error(`Error updating expense: ${error}`);
-        return { ok: false, error: "Could not add expense, try again" };
-    }
-    return { ok: true };
+  try {
+    const newExpense = await dbClient.expense.create({
+      data: {
+        title: data.title,
+        amount: data.amount,
+        userId: userId,
+        categoryId: categoryId,
+        date: parsedDate,
+      },
+    });
+    if (!newExpense) return { ok: false, error: "Could not add expense" };
+  } catch (error) {
+    console.error(`Error updating expense: ${error}`);
+    return { ok: false, error: "Could not add expense, try again" };
+  }
+  return { ok: true };
 }
-
 
 /**
  * Updates expense entry in the database
@@ -49,31 +48,31 @@ export async function addExpense(data: Expense): Promise<ActionResult> {
  * @returns Success status and error message if unsuccessful
  */
 export async function updateExpense(data: Expense): Promise<ActionResult> {
-    const userId = await getUserId();
-    if (!userId) redirect("/auth/login");
+  const userId = await getUserId();
+  if (!userId) redirect("/auth/login");
 
-    if (!data.categoryId) return { ok: false, error: "Invalid Category selected" };
+  if (!data.categoryId) return { ok: false, error: "Invalid Category selected" };
 
-    try {
-        const updatedExpense = await dbClient.expense.update({
-            where: {
-                id: data.id,
-                userId: userId,
-            },
-            data: {
-                title: data.title,
-                amount: data.amount,
-                categoryId: data.categoryId,
-                date: data.date,
-            }
-        });
-        if (!updatedExpense) return { ok: false, error: "Could not update expense" };
-        console.log(`Expense '${data.id} updated successfully`);
-        return { ok: true };
-    } catch(error) {
-        console.error(`Error updating expense: ${error}`);
-        return { ok: false, error: "Error updating expense" };
-    }
+  try {
+    const updatedExpense = await dbClient.expense.update({
+      where: {
+        id: data.id,
+        userId: userId,
+      },
+      data: {
+        title: data.title,
+        amount: data.amount,
+        categoryId: data.categoryId,
+        date: data.date,
+      },
+    });
+    if (!updatedExpense) return { ok: false, error: "Could not update expense" };
+    console.log(`Expense '${data.id} updated successfully`);
+    return { ok: true };
+  } catch (error) {
+    console.error(`Error updating expense: ${error}`);
+    return { ok: false, error: "Error updating expense" };
+  }
 }
 
 /**
@@ -81,31 +80,31 @@ export async function updateExpense(data: Expense): Promise<ActionResult> {
  * @returns List of `Expense` objects
  */
 export async function getUserExpenses(): Promise<Expense[]> {
-    const userId = await getUserId();
+  const userId = await getUserId();
 
-    if (!userId) {
-        redirect("/auth/login");
-    }
+  if (!userId) {
+    redirect("/auth/login");
+  }
 
-    const expenses = await dbClient.expense.findMany({
-        where: { userId },
-        select: {
-            id: true,
-            title: true,
-            amount: true,
-            category: {
-                select: { title: true },    // Only need the category title
-            },
-            date: true,
-        }
-    })
+  const expenses = await dbClient.expense.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      title: true,
+      amount: true,
+      category: {
+        select: { title: true }, // Only need the category title
+      },
+      date: true,
+    },
+  });
 
-    // Flatten the object
-    return expenses.map(e => ({
-        id: e.id,
-        title: e.title,
-        amount: e.amount.toNumber(),
-        category: e.category?.title ?? "N/A",
-        date: e.date,
-    }));
+  // Flatten the object
+  return expenses.map((e) => ({
+    id: e.id,
+    title: e.title,
+    amount: e.amount.toNumber(),
+    category: e.category?.title ?? "N/A",
+    date: e.date,
+  }));
 }

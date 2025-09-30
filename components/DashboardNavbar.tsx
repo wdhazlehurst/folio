@@ -1,10 +1,4 @@
-import {
-  IconReceipt2,
-  IconChartInfographic,
-  IconUserDollar,
-  IconSettings,
-  IconHome,
-} from "@tabler/icons-react";
+import { IconReceipt2, IconChartInfographic, IconUserDollar, IconSettings, IconHome } from "@tabler/icons-react";
 import { Code, Group } from "@mantine/core";
 import classes from "@/css/NavbarSimple.module.css";
 import packageJson from "../package.json";
@@ -29,10 +23,8 @@ export function DashboardNavbar() {
       <div className={classes.navbarMain}>
         {data.map(({ link, label, icon: Icon }) => {
           const isActive =
-            link === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname === link || pathname.startsWith(`${link}/`);
-           return (
+            link === "/dashboard" ? pathname === "/dashboard" : pathname === link || pathname.startsWith(`${link}/`);
+          return (
             <Link
               key={label}
               href={link}
@@ -50,5 +42,4 @@ export function DashboardNavbar() {
       </Group>
     </nav>
   );
-
 }

@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from '@tabler/icons-react';
-import {
-  Center,
-  Group,
-  ScrollArea,
-  Table,
-  Text,
-  TextInput,
-  UnstyledButton,
-} from '@mantine/core';
-import classes from "@/css/TableSort.module.css"
-import { Expense } from '@/types/expense';
-import { getUserExpenses } from './actions';
-
+import { useState, useEffect } from "react";
+import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
+import { Center, Group, ScrollArea, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
+import classes from "@/css/TableSort.module.css";
+import { Expense } from "@/types/expense";
+import { getUserExpenses } from "./actions";
 
 interface ThProps {
   children: React.ReactNode;
@@ -42,22 +33,19 @@ function Th({ children, reversed, sorted, onSort }: ThProps) {
 }
 
 function filterData(data: Expense[], search: string) {
-    const query = search.toLowerCase().trim();
+  const query = search.toLowerCase().trim();
 
-    if (!data.length) return [];
+  if (!data.length) return [];
 
-    return data.filter((item) =>
-        Object.keys(item).some((key) => {
-            const value = item[key as keyof Expense];
-            return String(value).toLowerCase().includes(query);
-        })
-    );
+  return data.filter((item) =>
+    Object.keys(item).some((key) => {
+      const value = item[key as keyof Expense];
+      return String(value).toLowerCase().includes(query);
+    })
+  );
 }
 
-function sortData(
-  data: Expense[],
-  payload: { sortBy: keyof Expense | null; reversed: boolean; search: string }
-) {
+function sortData(data: Expense[], payload: { sortBy: keyof Expense | null; reversed: boolean; search: string }) {
   const { sortBy, reversed, search } = payload;
 
   // Filter first
@@ -72,9 +60,9 @@ function sortData(
     let cmp = 0;
 
     if (typeof aValue === "number" && typeof bValue === "number") {
-        cmp = aValue - bValue;
+      cmp = aValue - bValue;
     } else {
-        cmp = String(aValue).localeCompare(String(bValue));
+      cmp = String(aValue).localeCompare(String(bValue));
     }
 
     return reversed ? -cmp : cmp;
@@ -82,19 +70,19 @@ function sortData(
 }
 
 interface ExpenseTableProps {
-    data: Expense[];
+  data: Expense[];
 }
 
 export default function ExpenseTable({ data }: ExpenseTableProps) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [sortedData, setSortedData] = useState<Expense[]>([]);
   const [sortBy, setSortBy] = useState<keyof Expense | null>(null);
   const [reverseSortDirection, setReverseSortDirection] = useState(false);
 
   useEffect(() => {
     async function loadExpenses() {
-        const expenses = await getUserExpenses();
-        setSortedData(expenses);
+      const expenses = await getUserExpenses();
+      setSortedData(expenses);
     }
     loadExpenses();
   }, []);
@@ -133,32 +121,16 @@ export default function ExpenseTable({ data }: ExpenseTableProps) {
       <Table horizontalSpacing="md" verticalSpacing="xs" miw={700} layout="fixed">
         <Table.Tbody>
           <Table.Tr>
-            <Th
-              sorted={sortBy === 'title'}
-              reversed={reverseSortDirection}
-              onSort={() => setSorting('title')}
-            >
+            <Th sorted={sortBy === "title"} reversed={reverseSortDirection} onSort={() => setSorting("title")}>
               Title
             </Th>
-            <Th
-              sorted={sortBy === 'amount'}
-              reversed={reverseSortDirection}
-              onSort={() => setSorting('amount')}
-            >
+            <Th sorted={sortBy === "amount"} reversed={reverseSortDirection} onSort={() => setSorting("amount")}>
               Amount
             </Th>
-            <Th
-              sorted={sortBy === 'category'}
-              reversed={reverseSortDirection}
-              onSort={() => setSorting('category')}
-            >
+            <Th sorted={sortBy === "category"} reversed={reverseSortDirection} onSort={() => setSorting("category")}>
               Category
             </Th>
-            <Th
-              sorted={sortBy === 'date'}
-              reversed={reverseSortDirection}
-              onSort={() => setSorting('date')}
-            >
+            <Th sorted={sortBy === "date"} reversed={reverseSortDirection} onSort={() => setSorting("date")}>
               Date
             </Th>
           </Table.Tr>

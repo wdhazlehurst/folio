@@ -9,7 +9,7 @@ interface HeaderProps {
   showSignup?: boolean;
 }
 
-function IndexHeader({ showLogin = true, showSignup = true, }: HeaderProps) {
+function IndexHeader({ showLogin = true, showSignup = true }: HeaderProps) {
   const theme = useMantineTheme();
 
   return (
@@ -28,12 +28,16 @@ function IndexHeader({ showLogin = true, showSignup = true, }: HeaderProps) {
         </Text>
 
         <Group>
-          {showLogin && <Button variant="default" component={Link} href="/auth/login">
-            Log in
-          </Button>}
-          {showSignup && <Button component={Link} href="/auth/register">
-            Sign up
-          </Button>}
+          {showLogin && (
+            <Button variant="default" component={Link} href="/auth/login">
+              Log in
+            </Button>
+          )}
+          {showSignup && (
+            <Button component={Link} href="/auth/register">
+              Sign up
+            </Button>
+          )}
           <ThemeToggler />
         </Group>
       </header>

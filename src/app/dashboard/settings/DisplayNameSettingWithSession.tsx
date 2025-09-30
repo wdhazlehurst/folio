@@ -12,11 +12,5 @@ export default function DisplayNameSettingWithSession() {
   const email = session?.user?.email ?? "";
   const name = session?.user?.name ?? "";
 
-  return (
-    <DisplayNameSetting
-      userEmail={email}
-      initialMode="email"
-      initialDisplayName={name}
-    />
-  );
+  return <DisplayNameSetting userEmail={email} initialMode="email" initialDisplayName={name} />;
 }
