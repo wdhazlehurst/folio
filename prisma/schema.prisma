@@ -19,6 +19,14 @@ enum Role {
   MODERATOR
 }
 
+enum Recurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 model User {
   id            String                @id @default(uuid())
   email         String                @unique
@@ -50,7 +58,16 @@ model Expense {
   user          User              @relation(fields: [userId], references: [id])
   categoryId    String?
   category      ExpenseCategory?  @relation(fields: [categoryId], references: [id])
+
   date          DateTime          @default(now()) @db.Date
+
+  // Recurrence fields
+  recurrence    Recurrence        @default(NONE)
+  interval      Int?              // e.g., every 2 weeks (default 1 if null)
+  isActive      Boolean           @default(false)
+  endsOn        DateTime?         @db.Date
+  lastAppliedOn DateTime?         @db.Date //last time the reoccurence procs
+  
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 }
