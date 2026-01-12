@@ -48,7 +48,6 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
   async function handleUpdate(id: string, values: { title: string; description: string }) {
     setMessage(null);
     setError(null);
-    console.log(`RECEIVED ${values.description}`);
     const result = await updateExpenseCategory({
       id,
       title: values.title,
