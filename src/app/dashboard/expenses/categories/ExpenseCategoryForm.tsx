@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "@mantine/form";
-import {
-  Button,
-  Card,
-  Group,
-  Stack,
-  TextInput,
-  Text,
-  Title,
-  Alert,
-  Modal,
-} from "@mantine/core";
+import { Button, Card, Group, Stack, TextInput, Text, Title, Alert, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 
 import { addCategory, updateExpenseCategory } from "./actions";
@@ -61,8 +51,8 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
     console.log(`RECEIVED ${values.description}`);
     const result = await updateExpenseCategory({
       id,
-      title: values.title, 
-      description: values.description
+      title: values.title,
+      description: values.description,
     });
 
     if (result.ok) {
@@ -90,13 +80,14 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
         overlayProps={{
           backgroundOpacity: 0.45,
           blur: 1,
-        }}>
-
+        }}
+      >
         <form onSubmit={form.onSubmit(handleAdd)}>
           <TextInput
             label="Title"
             placeholder="E.g., Groceries"
-            size="md" data-autofocus
+            size="md"
+            data-autofocus
             {...form.getInputProps("title")}
           />
           <TextInput
@@ -106,14 +97,18 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
             {...form.getInputProps("description")}
           />
           <Group justify="flex-end" mt="md">
-            <Button type="submit" onClick={close}>Create</Button>
+            <Button type="submit" onClick={close}>
+              Create
+            </Button>
           </Group>
         </form>
       </Modal>
 
       {/* Add Form */}
       <form onSubmit={form.onSubmit(handleAdd)}>
-        <Button variant="default" onClick={open}>New Category</Button>
+        <Button variant="default" onClick={open}>
+          New Category
+        </Button>
       </form>
 
       {/* Category List */}
@@ -123,13 +118,7 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
         <Stack>
           {categories.map((c) =>
             selected === c.id ? (
-              <Card
-                key={c.id}
-                shadow="sm"
-                padding="md"
-                radius="md"
-                withBorder
-              >
+              <Card key={c.id} shadow="sm" padding="md" radius="md" withBorder>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -143,27 +132,18 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
                     <TextInput
                       label="Title"
                       defaultValue={c.title}
-                      onChange={(e) =>
-                        form.setFieldValue("title", e.currentTarget.value)
-                      }
+                      onChange={(e) => form.setFieldValue("title", e.currentTarget.value)}
                     />
                     <TextInput
                       label="Description"
                       defaultValue={c.description ?? ""}
-                      onChange={(e) =>
-                        form.setFieldValue("description", e.currentTarget.value)
-                      }
+                      onChange={(e) => form.setFieldValue("description", e.currentTarget.value)}
                     />
                     <Group justify="space-between">
                       <Button type="submit" size="xs">
                         Save
                       </Button>
-                      <Button
-                        variant="light"
-                        color="gray"
-                        size="xs"
-                        onClick={() => setSelected(null)}
-                      >
+                      <Button variant="light" color="gray" size="xs" onClick={() => setSelected(null)}>
                         Close
                       </Button>
                     </Group>

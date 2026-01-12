@@ -9,37 +9,35 @@ import { redirect } from "next/navigation";
 type CategoryResult = { ok: true } | { ok: false; message: string };
 
 export async function updateExpenseCategory(data: ExpenseCategory): Promise<ActionResult> {
-    const userId = await getUserId();
+  const userId = await getUserId();
 
-    if (!userId) redirect("/auth/login");
+  if (!userId) redirect("/auth/login");
 
-    try {
-        const existingCategory = await dbClient.expenseCategory.findFirst({
-            where: {
-                id: data.id,
-                userId,
-            },
-        });
+  try {
+    const existingCategory = await dbClient.expenseCategory.findFirst({
+      where: {
+        id: data.id,
+        userId,
+      },
+    });
 
-        if (!existingCategory) {
-            return {ok: false, error: "Category not found"};
-        }
-
-        const updated = await dbClient.expenseCategory.update({
-            where: { id: data.id },
-            data: {
-                title: data.title,
-                description: data.description ?? null,
-            },
-        });
-
-        return { ok: true };
-    } catch(error) {
-        console.error("Error updating expense category");
-        return { ok: false, error: "Error updating category" };
+    if (!existingCategory) {
+      return { ok: false, error: "Category not found" };
     }
 
+    const updated = await dbClient.expenseCategory.update({
+      where: { id: data.id },
+      data: {
+        title: data.title,
+        description: data.description ?? null,
+      },
+    });
 
+    return { ok: true };
+  } catch (error) {
+    console.error("Error updating expense category");
+    return { ok: false, error: "Error updating category" };
+  }
 }
 
 export async function getCategoryById(userId: string, id: string): Promise<string | null> {
