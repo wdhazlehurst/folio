@@ -101,6 +101,7 @@ export async function getUserExpenseCategories(): Promise<ExpenseCategory[]> {
     select: {
       id: true,
       title: true,
+      description: true,
     },
   });
 
