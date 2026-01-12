@@ -11,7 +11,9 @@ import {
   Text,
   Title,
   Alert,
+  Modal,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 
 import { addCategory, updateExpenseCategory } from "./actions";
 
@@ -28,6 +30,7 @@ interface CategoryManagerProps {
 
 export default function CategoryManager({ categories = [], onUpdate }: CategoryManagerProps) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [modalOpened, { open, close }] = useDisclosure(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,21 +81,24 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
       {message && <Alert color="green">{message}</Alert>}
       {error && <Alert color="red">{error}</Alert>}
 
+      {/* Popup for creating new expense category*/}
+      <Modal
+        opened={modalOpened}
+        onClose={close}
+        title="New Expense Category"
+        centered
+        overlayProps={{
+          backgroundOpacity: 0.45,
+          blur: 1,
+        }}>
+
+        <TextInput label="Title"placeholder="E.g., Groceries" size="md" data-autofocus/>
+        <TextInput label="Description" placeholder="E.g., Monthly food expenses" size="md"/>
+      </Modal>
+
       {/* Add Form */}
       <form onSubmit={form.onSubmit(handleAdd)}>
-        <Group align="flex-end" gap="md">
-          <TextInput
-            label="Title"
-            placeholder="e.g. Groceries"
-            {...form.getInputProps("title")}
-          />
-          <TextInput
-            label="Description (optional)"
-            placeholder="e.g. Monthly food expenses"
-            {...form.getInputProps("description")}
-          />
-          <Button type="submit">Add</Button>
-        </Group>
+        <Button variant="default" onClick={open}>New Category</Button>
       </form>
 
       {/* Category List */}
@@ -143,7 +149,7 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
                         size="xs"
                         onClick={() => setSelected(null)}
                       >
-                        Cancel
+                        Close
                       </Button>
                     </Group>
                   </Stack>
