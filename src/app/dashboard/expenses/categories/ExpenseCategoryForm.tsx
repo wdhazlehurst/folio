@@ -92,8 +92,23 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
           blur: 1,
         }}>
 
-        <TextInput label="Title"placeholder="E.g., Groceries" size="md" data-autofocus/>
-        <TextInput label="Description" placeholder="E.g., Monthly food expenses" size="md"/>
+        <form onSubmit={form.onSubmit(handleAdd)}>
+          <TextInput
+            label="Title"
+            placeholder="E.g., Groceries"
+            size="md" data-autofocus
+            {...form.getInputProps("title")}
+          />
+          <TextInput
+            label="Description"
+            placeholder="E.g., Monthly food expenses"
+            size="md"
+            {...form.getInputProps("description")}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button type="submit" onClick={close}>Create</Button>
+          </Group>
+        </form>
       </Modal>
 
       {/* Add Form */}
