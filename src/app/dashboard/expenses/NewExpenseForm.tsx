@@ -17,6 +17,7 @@ interface ExpenseFormProps {
     title: string;
     amount: number;
     category: string;
+    categoryId: string;
     date: Date; // send ISO string to backend
   }) => Promise<{ ok: boolean; error?: string } | void>;
   onUpdate: () => void;
@@ -43,7 +44,8 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
     const response = await onSubmit({
       title,
       amount: parsedAmount,
-      category,
+      category: category,
+      categoryId: category,
       date: new Date(date),
     });
 
@@ -75,58 +77,57 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
         overlayProps={{
           backgroundOpacity: 0.45,
           blur: 1,
-        }}>
-          <form onSubmit={handleSubmit}>
-            {error && (
-              <Alert color="red" mb="md">
-                {error}
-              </Alert>
-            )}
-            <TextInput
-              label="Title"
-              placeholder="Enter Title"
-              value={title}
-              onChange={(e) => setTitle(e.currentTarget.value)}
-              required
-              data-autofocus
-            />
-            <NumberInput
-              label="Amount"
-              placeholder="Enter Amount"
-              leftSection={currencyIcon}
-              value={amount}
-              onChange={setAmount}
-              required
-              decimalScale={2}
-              fixedDecimalScale
-              allowNegative={false}
-              hideControls
-            />
-            <Select
-              label="Category"
-              placeholder="Select Category"
-              data={categories}
-              value={category}
-              onChange={setCategory}
-              required
-            />
-            <DatePickerInput
-              label="Date"
-              placeholder="Select Date"
-              value={date}
-              onChange={setDate}
-              required
-              clearable={true}
-              firstDayOfWeek={0}
-              highlightToday={true}
-              weekendDays={[]}
-            />
-            <Group justify="flex-end" mt="md">
-              <Button type="submit">
-                Create
-              </Button>
-            </Group>
-          </form>
+        }}
+      >
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <Alert color="red" mb="md">
+              {error}
+            </Alert>
+          )}
+          <TextInput
+            label="Title"
+            placeholder="Enter Title"
+            value={title}
+            onChange={(e) => setTitle(e.currentTarget.value)}
+            required
+            data-autofocus
+          />
+          <NumberInput
+            label="Amount"
+            placeholder="Enter Amount"
+            leftSection={currencyIcon}
+            value={amount}
+            onChange={setAmount}
+            required
+            decimalScale={2}
+            fixedDecimalScale
+            allowNegative={false}
+            hideControls
+          />
+          <Select
+            label="Category"
+            placeholder="Select Category"
+            data={categories}
+            value={category}
+            onChange={setCategory}
+            required
+          />
+          <DatePickerInput
+            label="Date"
+            placeholder="Select Date"
+            value={date}
+            onChange={setDate}
+            required
+            clearable={true}
+            firstDayOfWeek={0}
+            highlightToday={true}
+            weekendDays={[]}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button type="submit">Create</Button>
+          </Group>
+        </form>
       </Modal>
 
       <Button variant="default" onClick={open}>

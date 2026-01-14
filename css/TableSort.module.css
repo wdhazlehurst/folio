@@ -16,3 +16,26 @@
   height: 21px;
   border-radius: 50%; /* cleaner than 21px */
 }
+
+.titleCell {
+  align-items: center;
+}
+
+.editIcon {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.row:hover .editIcon {
+  opacity: 1;
+}
+
+.cell {
+  cursor: pointer;
+}
+
+.titleCell:hover .editIcon {
+  opacity: 1;
+  pointer-events: auto;
+}

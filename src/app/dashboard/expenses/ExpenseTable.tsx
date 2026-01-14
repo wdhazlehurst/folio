@@ -1,149 +1,185 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
-import { Center, Group, ScrollArea, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
-import classes from "@/css/TableSort.module.css";
-import { Expense } from "@/types/expense";
-import { getUserExpenses } from "./actions";
+import { useState } from "react";
+import { ScrollArea, Table, Text, TextInput, Select } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
+import { Expense, ExpenseCategory } from "@/types/expense";
 
-interface ThProps {
-  children: React.ReactNode;
-  reversed: boolean;
-  sorted: boolean;
-  onSort: () => void;
+type EditableField = "title" | "amount" | "category" | "date";
+
+interface EditingCell {
+  rowId: string;
+  field: EditableField;
 }
 
-function Th({ children, reversed, sorted, onSort }: ThProps) {
-  const Icon = sorted ? (reversed ? IconChevronUp : IconChevronDown) : IconSelector;
-  return (
-    <Table.Th className={classes.th}>
-      <UnstyledButton onClick={onSort} className={classes.control}>
-        <Group justify="space-between">
-          <Text fw={500} fz="sm">
-            {children}
-          </Text>
-          <Center className={classes.icon}>
-            <Icon size={16} stroke={1.5} />
-          </Center>
-        </Group>
-      </UnstyledButton>
-    </Table.Th>
-  );
-}
+const inputProps = {
+  size: "xs" as const,
+  autoFocus: true,
+  w: "100%",
+};
 
-function filterData(data: Expense[], search: string) {
-  const query = search.toLowerCase().trim();
-
-  if (!data.length) return [];
-
-  return data.filter((item) =>
-    Object.keys(item).some((key) => {
-      const value = item[key as keyof Expense];
-      return String(value).toLowerCase().includes(query);
-    })
-  );
-}
-
-function sortData(data: Expense[], payload: { sortBy: keyof Expense | null; reversed: boolean; search: string }) {
-  const { sortBy, reversed, search } = payload;
-
-  // Filter first
-  const filtered = filterData(data, search);
-
-  if (!sortBy) return filtered;
-
-  return [...filtered].sort((a, b) => {
-    const aValue = a[sortBy];
-    const bValue = b[sortBy];
-
-    let cmp = 0;
-
-    if (typeof aValue === "number" && typeof bValue === "number") {
-      cmp = aValue - bValue;
-    } else {
-      cmp = String(aValue).localeCompare(String(bValue));
-    }
-
-    return reversed ? -cmp : cmp;
-  });
+interface NewExpenseRow {
+  id: string;
+  title: string;
+  amount: string;
+  date: string;
+  categoryObj?: ExpenseCategory;
 }
 
 interface ExpenseTableProps {
-  data: Expense[];
+  expenses: Expense[];
+  categories: ExpenseCategory[];
 }
 
-export default function ExpenseTable({ data }: ExpenseTableProps) {
-  const [search, setSearch] = useState("");
-  const [sortedData, setSortedData] = useState<Expense[]>([]);
-  const [sortBy, setSortBy] = useState<keyof Expense | null>(null);
-  const [reverseSortDirection, setReverseSortDirection] = useState(false);
+export default function ExpenseTable({ expenses, categories }: ExpenseTableProps) {
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [draftCategory, setDraftCategory] = useState<ExpenseCategory | null>(null);
+  const [draftValue, setDraftValue] = useState<string>("");
 
-  useEffect(() => {
-    async function loadExpenses() {
-      const expenses = await getUserExpenses();
-      setSortedData(expenses);
+  const categoryOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.title,
+  }));
+
+  function EditableCell({
+    rowId,
+    field,
+    value,
+    onCommit,
+    categoryObj,
+  }: {
+    rowId: string;
+    field: EditableField;
+    value: string;
+    onCommit: (value: any) => void;
+    categoryObj?: ExpenseCategory;
+  }) {
+    const isEditing = editingCell?.rowId === rowId && editingCell.field === field;
+
+    const submit = (value: any) => {
+      onCommit(value);
+      setEditingCell(null);
+      setDraftCategory(null);
+    };
+
+    if (isEditing) {
+      if (field === "category") {
+        return (
+          <Select
+            {...inputProps}
+            data={categoryOptions}
+            value={draftCategory?.id ?? ""}
+            onChange={(id) => {
+              const selected = categories.find((c) => c.id === id);
+              if (selected) submit(selected); // pass full ExpenseCategory object
+            }}
+            onBlur={() => setEditingCell(null)}
+            clearable
+          />
+        );
+      }
+
+      if (field === "date") {
+        return (
+          <DatePickerInput
+            value={draftValue ? new Date(draftValue) : null}
+            onBlur={() => setEditingCell(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit(draftValue);
+              if (e.key === "Escape") setEditingCell(null);
+            }}
+          />
+        );
+      }
+
+      return (
+        <TextInput
+          {...inputProps}
+          value={draftValue}
+          onChange={(e) => setDraftValue(e.currentTarget.value)}
+          onBlur={() => submit(draftValue)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit(draftValue);
+            if (e.key === "Escape") setEditingCell(null);
+          }}
+        />
+      );
     }
-    loadExpenses();
-  }, []);
 
-  const setSorting = (field: keyof Expense) => {
-    const reversed = field === sortBy ? !reverseSortDirection : false;
-    setReverseSortDirection(reversed);
-    setSortBy(field);
-    setSortedData(sortData(data, { sortBy: field, reversed, search }));
-  };
+    return (
+      <Text
+        size="sm"
+        style={{ cursor: "pointer" }}
+        onClick={() => {
+          setEditingCell({ rowId, field });
+          if (field === "category") setDraftCategory(categoryObj ?? null);
+          else setDraftValue(value);
+        }}
+      >
+        {field === "category" ? (categoryObj?.title ?? "") : value}
+      </Text>
+    );
+  }
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.currentTarget;
-    setSearch(value);
-    setSortedData(sortData(data, { sortBy, reversed: reverseSortDirection, search: value }));
-  };
-
-  const rows = sortedData.map((row) => (
-    <Table.Tr key={row.title}>
-      <Table.Td>{row.title}</Table.Td>
-      <Table.Td>{row.amount.toFixed(2)}</Table.Td>
-      <Table.Td>{row.category}</Table.Td>
-      <Table.Td>{row.date.toISOString().split("T")[0]}</Table.Td>
-    </Table.Tr>
-  ));
+  const rows = expenses.map((row) => {
+    const categoryObj = categories.find((c) => c.id === row.categoryId);
+    return (
+      <Table.Tr key={row.id}>
+        <Table.Td>
+          <EditableCell
+            rowId={row.id!}
+            field="title"
+            value={row.title}
+            onCommit={(v) => console.log("Save title:", v)}
+          />
+        </Table.Td>
+        <Table.Td>
+          <EditableCell
+            rowId={row.id!}
+            field="amount"
+            value={row.amount.toFixed(2)}
+            onCommit={(v) => console.log("Save amount:", v)}
+          />
+        </Table.Td>
+        <Table.Td>
+          <EditableCell
+            rowId={row.id!}
+            field="category"
+            value={categoryObj?.title ?? ""}
+            categoryObj={categoryObj}
+            onCommit={(v) => console.log("Save category:", v)}
+          />
+        </Table.Td>
+        <Table.Td>
+          <EditableCell
+            rowId={row.id!}
+            field="date"
+            value={row.date instanceof Date ? row.date.toISOString().split("T")[0] : row.date}
+            onCommit={(v) => console.log("Save date:", v)}
+          />
+        </Table.Td>
+      </Table.Tr>
+    );
+  });
 
   return (
     <ScrollArea>
-      <TextInput
-        placeholder="Search by any field"
-        mb="md"
-        leftSection={<IconSearch size={16} stroke={1.5} />}
-        value={search}
-        onChange={handleSearchChange}
-      />
-      <Table horizontalSpacing="md" verticalSpacing="xs" miw={700} layout="fixed">
-        <Table.Tbody>
+      <Table miw={800} verticalSpacing="sm">
+        <Table.Thead>
           <Table.Tr>
-            <Th sorted={sortBy === "title"} reversed={reverseSortDirection} onSort={() => setSorting("title")}>
-              Title
-            </Th>
-            <Th sorted={sortBy === "amount"} reversed={reverseSortDirection} onSort={() => setSorting("amount")}>
-              Amount
-            </Th>
-            <Th sorted={sortBy === "category"} reversed={reverseSortDirection} onSort={() => setSorting("category")}>
-              Category
-            </Th>
-            <Th sorted={sortBy === "date"} reversed={reverseSortDirection} onSort={() => setSorting("date")}>
-              Date
-            </Th>
+            <Table.Th>Title</Table.Th>
+            <Table.Th>Amount</Table.Th>
+            <Table.Th>Category</Table.Th>
+            <Table.Th>Date</Table.Th>
           </Table.Tr>
-        </Table.Tbody>
+        </Table.Thead>
         <Table.Tbody>
           {rows.length > 0 ? (
             rows
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={data[0] ? Object.keys(data[0]).length : 1}>
-                <Text fw={500} ta="center">
-                  Nothing found
-                </Text>
+              <Table.Td colSpan={4} style={{ textAlign: "center" }}>
+                Nothing found
               </Table.Td>
             </Table.Tr>
           )}

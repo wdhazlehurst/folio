@@ -4,17 +4,12 @@ import { useState } from "react";
 import { useForm } from "@mantine/form";
 import { Button, Card, Group, Stack, TextInput, Text, Title, Alert, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { ExpenseCategory } from "@/types/expense";
 
 import { addCategory, updateExpenseCategory } from "./actions";
 
-interface Category {
-  id: string;
-  title: string;
-  description?: string | null;
-}
-
 interface CategoryManagerProps {
-  categories: Category[];
+  categories: ExpenseCategory[];
   onUpdate: () => void;
 }
 

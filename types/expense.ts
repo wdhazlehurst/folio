@@ -6,11 +6,18 @@ const ExpenseSchema = z.object({
   title: z.string(),
   amount: z.number(),
   category: z.string(),
-  categoryId: z.uuid().optional(),
+  categoryId: z.uuid(),
   description: z.string().optional(),
   date: z.date(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
+
+const ExpenseCategorySchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string().nullable(),
+});
+export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
 
 /**
  * Client -> Server: data required to create new expense
@@ -27,10 +34,4 @@ export interface NewExpense {
 export interface NewExpenseCategory {
   title: string;
   description: string;
-}
-
-export interface ExpenseCategory {
-  id: string;
-  title: string;
-  description?: string;
 }

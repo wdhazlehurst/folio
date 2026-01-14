@@ -93,7 +93,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
       title: true,
       amount: true,
       category: {
-        select: { title: true }, // Only need the category title
+        select: { title: true, id: true }, // Only need the category title
       },
       date: true,
     },
@@ -105,6 +105,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
     title: e.title,
     amount: e.amount.toNumber(),
     category: e.category?.title ?? "N/A",
+    categoryId: e.category?.id ?? null,
     date: e.date,
   }));
 }
