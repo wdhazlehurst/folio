@@ -27,7 +27,7 @@ export async function updateExpenseCategory(data: ExpenseCategory): Promise<Acti
       return { ok: false, error: "Category not found" };
     }
 
-    const updated = await dbClient.expenseCategory.update({
+    await dbClient.expenseCategory.update({
       where: { id: data.id },
       data: {
         title: data.title,

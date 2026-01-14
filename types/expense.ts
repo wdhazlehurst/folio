@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-const ExpenseSchema = z.object({
+export const ExpenseSchema = z.object({
   id: z.uuid().optional(),
   userId: z.uuid().optional(),
   title: z.string(),
@@ -12,7 +12,7 @@ const ExpenseSchema = z.object({
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
-const ExpenseCategorySchema = z.object({
+export const ExpenseCategorySchema = z.object({
   id: z.uuid(),
   title: z.string(),
   description: z.string().nullable(),

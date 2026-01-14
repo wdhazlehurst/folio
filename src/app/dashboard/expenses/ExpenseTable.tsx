@@ -18,14 +18,6 @@ const inputProps = {
   w: "100%",
 };
 
-interface NewExpenseRow {
-  id: string;
-  title: string;
-  amount: string;
-  date: string;
-  categoryObj?: ExpenseCategory;
-}
-
 interface ExpenseTableProps {
   expenses: Expense[];
   categories: ExpenseCategory[];
@@ -51,12 +43,12 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
     rowId: string;
     field: EditableField;
     value: string;
-    onCommit: (value: any) => void;
+    onCommit: (value: string | ExpenseCategory) => void;
     categoryObj?: ExpenseCategory;
   }) {
     const isEditing = editingCell?.rowId === rowId && editingCell.field === field;
 
-    const submit = (value: any) => {
+    const submit = (value: string | ExpenseCategory) => {
       onCommit(value);
       setEditingCell(null);
       setDraftCategory(null);

@@ -96,6 +96,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
         select: { title: true, id: true }, // Only need the category title
       },
       date: true,
+      userId: true,
     },
   });
 
@@ -107,5 +108,6 @@ export async function getUserExpenses(): Promise<Expense[]> {
     category: e.category?.title ?? "N/A",
     categoryId: e.category?.id ?? null,
     date: e.date,
+    userId: e.userId,
   }));
 }
