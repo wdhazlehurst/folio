@@ -39,9 +39,9 @@ export async function updateExpenseCategory(data: ExpenseCategory): Promise<Acti
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") {
-        return { "ok": false, error: `Category '${data.title}' already exists`};
+        return { ok: false, error: `Category '${data.title}' already exists` };
       }
-    } 
+    }
     console.error("Error updating expense category");
     return { ok: false, error: "Error updating category" };
   }
