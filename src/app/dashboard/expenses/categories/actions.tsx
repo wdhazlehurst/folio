@@ -6,6 +6,8 @@ import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+import { Prisma } from "@prisma/client";
+
 type CategoryResult = { ok: true } | { ok: false; message: string };
 
 export async function updateExpenseCategory(data: ExpenseCategory): Promise<ActionResult> {
@@ -35,6 +37,11 @@ export async function updateExpenseCategory(data: ExpenseCategory): Promise<Acti
 
     return { ok: true };
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return { "ok": false, error: `Category '${data.title}' already exists`};
+      }
+    } 
     console.error("Error updating expense category");
     return { ok: false, error: "Error updating category" };
   }
