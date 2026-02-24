@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Stack } from "@mantine/core";
-import { addExpense, getUserExpenses } from "@/app/dashboard/expenses/actions";
+import { addExpense, getUserExpenses, updateExpense } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
 import { Expense, ExpenseCategory } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
@@ -14,6 +14,17 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const handleUpdateExpense = async (updatedExpense: Expense) => {
+    const response = await updateExpense(updatedExpense);
+
+    if (response && !response.ok) {
+      setError(response.error);
+      return;
+    }
+
+    await refreshData();
+  };
 
   const refreshData = useCallback(async () => {
     try {
@@ -58,7 +69,7 @@ export default function ExpensesPage() {
         onSubmit={handleAddExpense}
         onUpdate={refreshData}
       />
-      <ExpenseTable expenses={expenses} categories={categories} />
+      <ExpenseTable expenses={expenses} categories={categories} onUpdateExpense={handleUpdateExpense} />
       <CategoryManager categories={categories} onUpdate={refreshData} />
     </Stack>
   );

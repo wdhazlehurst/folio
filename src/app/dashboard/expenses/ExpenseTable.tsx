@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ScrollArea, Table, Text, TextInput, Select } from "@mantine/core";
+import { ScrollArea, Table, Text, TextInput, Select, ActionIcon } from "@mantine/core";
+import { IconSend } from "@tabler/icons-react";
 import { DatePickerInput } from "@mantine/dates";
 import { Expense, ExpenseCategory } from "@/types/expense";
 
@@ -21,17 +22,48 @@ const inputProps = {
 interface ExpenseTableProps {
   expenses: Expense[];
   categories: ExpenseCategory[];
+  onUpdateExpense: (expense: Expense) => Promise<void>;
 }
 
-export default function ExpenseTable({ expenses, categories }: ExpenseTableProps) {
+export default function ExpenseTable({ expenses, categories, onUpdateExpense }: ExpenseTableProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [draftCategory, setDraftCategory] = useState<ExpenseCategory | null>(null);
-  const [draftValue, setDraftValue] = useState<string>("");
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
+  function beginExpenseEdit(expense: Expense) {
+    setEditingExpense({ ...expense }); // Clone so we don't mutate props
+  }
+
+  /**
+   * Update field for expense being edited
+   * @param key Field of expense
+   * @param value New value for expense field
+   */
+  function updateDraftExpense<K extends keyof Expense>(key: K, value: Expense[K]) {
+    setEditingExpense((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  function isEditingRow(rowId: string) {
+    return editingExpense?.id === rowId;
+  }
+
+  /** Mapping for category title to UUIDs */
   const categoryOptions = categories.map((c) => ({
-    value: c.id,
-    label: c.title,
+    value: c.id, // UUID
+    label: c.title, // Display
   }));
+
+  async function handleSubmit() {
+    if (!editingExpense) return;
+
+    try {
+      await onUpdateExpense(editingExpense);
+
+      setEditingCell(null);
+      setEditingExpense(null);
+    } catch (error) {
+      console.error("Expense update failed", error);
+    }
+  }
 
   function EditableCell({
     rowId,
@@ -48,22 +80,24 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
   }) {
     const isEditing = editingCell?.rowId === rowId && editingCell.field === field;
 
-    const submit = (value: string | ExpenseCategory) => {
-      onCommit(value);
-      setEditingCell(null);
-      setDraftCategory(null);
-    };
-
     if (isEditing) {
+      if (field === "title") {
+        return (
+          <TextInput
+            {...inputProps}
+            value={editingExpense?.title.toString() ?? ""}
+            onChange={(e) => updateDraftExpense("title", e.currentTarget.value)}
+          />
+        );
+      }
       if (field === "category") {
         return (
           <Select
             {...inputProps}
             data={categoryOptions}
-            value={draftCategory?.id ?? ""}
-            onChange={(id) => {
-              const selected = categories.find((c) => c.id === id);
-              if (selected) submit(selected); // pass full ExpenseCategory object
+            value={editingExpense?.categoryId ?? null}
+            onChange={(categoryId) => {
+              if (categoryId) updateDraftExpense("categoryId", categoryId);
             }}
             onBlur={() => setEditingCell(null)}
             clearable
@@ -74,26 +108,21 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
       if (field === "date") {
         return (
           <DatePickerInput
-            value={draftValue ? new Date(draftValue) : null}
+            value={editingExpense?.date ? new Date(editingExpense?.date) : null}
             onBlur={() => setEditingCell(null)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit(draftValue);
-              if (e.key === "Escape") setEditingCell(null);
+            onChange={(d) => {
+              if (d) updateDraftExpense("date", new Date(d));
             }}
           />
         );
       }
 
+      /** Expense amount */
       return (
         <TextInput
           {...inputProps}
-          value={draftValue}
-          onChange={(e) => setDraftValue(e.currentTarget.value)}
-          onBlur={() => submit(draftValue)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit(draftValue);
-            if (e.key === "Escape") setEditingCell(null);
-          }}
+          value={editingExpense?.amount.toString() ?? ""}
+          onChange={(e) => updateDraftExpense("amount", Number(e.currentTarget.value))}
         />
       );
     }
@@ -103,9 +132,11 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
         size="sm"
         style={{ cursor: "pointer" }}
         onClick={() => {
+          if (!isEditingRow(rowId)) {
+            const expense = expenses.find((e) => e.id === rowId);
+            if (expense) beginExpenseEdit(expense);
+          }
           setEditingCell({ rowId, field });
-          if (field === "category") setDraftCategory(categoryObj ?? null);
-          else setDraftValue(value);
         }}
       >
         {field === "category" ? (categoryObj?.title ?? "") : value}
@@ -150,6 +181,13 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
             onCommit={(v) => console.log("Save date:", v)}
           />
         </Table.Td>
+        <Table.Td align="right">
+          {isEditingRow(row.id!) && (
+            <ActionIcon variant="outline" aria-label="Submit" onClick={handleSubmit}>
+              <IconSend />
+            </ActionIcon>
+          )}
+        </Table.Td>
       </Table.Tr>
     );
   });
@@ -163,6 +201,7 @@ export default function ExpenseTable({ expenses, categories }: ExpenseTableProps
             <Table.Th>Amount</Table.Th>
             <Table.Th>Category</Table.Th>
             <Table.Th>Date</Table.Th>
+            <Table.Th />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
