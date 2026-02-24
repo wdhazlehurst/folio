@@ -2,19 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm } from "@mantine/form";
-import {
-  Paper,
-  Title,
-  Text,
-  TextInput,
-  PasswordInput,
-  Stack,
-  Button,
-  Alert,
-  Container,
-} from "@mantine/core";
+import { Paper, Title, Text, TextInput, PasswordInput, Stack, Button, Alert, Container } from "@mantine/core";
+import { loginWithCredentials } from "./actions";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -24,10 +14,8 @@ export default function LoginForm() {
   const form = useForm({
     initialValues: { email: "", password: "" },
     validate: {
-      email: (value) =>
-        /^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email",
-      password: (value) =>
-        value.length < 6 ? "Password must be at least 6 characters" : null,
+      email: (value) => (/^\S+@\S+\.\S+$/.test(value) ? null : "Please enter a valid email"),
+      password: (value) => (value.length < 6 ? "Password must be at least 6 characters" : null),
     },
   });
 
@@ -35,16 +23,12 @@ export default function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      email: values.email,
-      password: values.password,
-    });
+    const result = await loginWithCredentials(values.email, values.password);
 
-    if (res?.error) {
-      setError(res.error);
+    if (!result.success) {
+      setError(result.message);
     } else {
-      router.push("/");
+      router.push("/dashboard");
     }
 
     setLoading(false);
@@ -61,16 +45,15 @@ export default function LoginForm() {
           Enter your credentials to access your account
         </Text>
 
-        {error && <Alert color="red" mb="md">{error}</Alert>}
+        {error && (
+          <Alert color="red" mb="md">
+            {error}
+          </Alert>
+        )}
 
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              required
-              {...form.getInputProps("email")}
-            />
+            <TextInput label="Email" placeholder="you@example.com" required {...form.getInputProps("email")} />
 
             <PasswordInput
               label="Password"

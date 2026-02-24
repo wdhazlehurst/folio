@@ -1,9 +1,12 @@
 "use server";
 
 import { dbClient } from "@/lib/prisma";
+import { UserInputError } from "@/lib/errors";
 import bcrypt from "bcrypt";
 import { SALT_ROUNDS, INVALID_INPUT_ERROR } from "@/constants";
+import { ActionResult } from "@/types/api";
 import { signIn } from "next-auth/react";
+import { validateEmail, validatePassword } from "@/lib/validators";
 
 /**
  * API route to handle user registration.
@@ -12,29 +15,29 @@ import { signIn } from "next-auth/react";
  * @returns A promise that resolves to the created user data or an error message.
  * @throws Error if registration fails from validation, email already exists, or DB issues.
  */
-export async function registerUser(
-  email: string,
-  password: string,
-): Promise<{ id: string; email: string }> {
+export async function registerUser(email: string, password: string): Promise<ActionResult> {
   try {
+    // Validation
     if (!email || !password) {
-      throw new Error("Email and Password are required");
+      throw new UserInputError("Email and Password are required");
     }
     if (typeof email !== "string" || typeof password !== "string") {
-      throw new Error(INVALID_INPUT_ERROR);
+      throw new UserInputError(INVALID_INPUT_ERROR);
     }
+    validateEmail(email);
+    validatePassword(password);
 
     // Check if email is already registered
     const existingUser = await dbClient.user.findUnique({ where: { email } });
     if (existingUser) {
-      throw new Error("Email already in use");
+      return { ok: false, error: "Email already in use" };
     }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Create the user
-    const user = await dbClient.user.create({
+    await dbClient.user.create({
       data: {
         email,
         password: hashedPassword,
@@ -42,11 +45,16 @@ export async function registerUser(
       },
     });
 
-    // Return user data
-    return { id: user.id, email: user.email };
-  } catch (error) {
+    return { ok: true };
+  } catch (error: unknown) {
     console.error("Error registering user:", error);
-    throw new Error("Error registering user");
+
+    //alert error to user
+    if (error instanceof UserInputError) {
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: false, error: "Encountered an error." };
   }
 }
 
