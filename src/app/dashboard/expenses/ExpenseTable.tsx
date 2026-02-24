@@ -27,10 +27,14 @@ interface ExpenseTableProps {
 
 export default function ExpenseTable({ expenses, categories, onUpdateExpense }: ExpenseTableProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [originalExpense, setOriginalExpense] = useState<Expense | null>(null); // Original expense
+  const [draftExpense, setDraftExpense] = useState<Expense | null>(null); // Updated expense before submitting
+  const [draftAmount, setDraftAmount] = useState<string>(""); // Amount field for draft expense
 
   function beginExpenseEdit(expense: Expense) {
-    setEditingExpense({ ...expense }); // Clone so we don't mutate props
+    setOriginalExpense(expense);
+    setDraftExpense({ ...expense });
+    setDraftAmount(expense.amount.toFixed(2)); // Always 2 decimals
   }
 
   /**
@@ -39,26 +43,28 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
    * @param value New value for expense field
    */
   function updateDraftExpense<K extends keyof Expense>(key: K, value: Expense[K]) {
-    setEditingExpense((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setDraftExpense((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
   function isEditingRow(rowId: string) {
-    return editingExpense?.id === rowId;
+    return draftExpense?.id === rowId;
   }
 
   /** Check if a row's field has been edited but not submitted */
-  function isDirtyValue(row: Expense, field: EditableField) {
-    if (!editingExpense || editingExpense.id !== row.id) return false;
+  function isFieldDirty(rowId: string, field: EditableField) {
+    if (!originalExpense || !draftExpense) return false;
+
+    if (draftExpense.id !== rowId) return false;
 
     switch (field) {
       case "title":
-        return editingExpense.title !== row.title;
+        return draftExpense.title !== originalExpense.title;
       case "amount":
-        return editingExpense.amount !== row.amount;
+        return draftExpense.amount !== originalExpense.amount;
       case "category":
-        return editingExpense.categoryId !== row.categoryId
+        return draftExpense.categoryId !== originalExpense.categoryId;
       case "date":
-        return new Date(editingExpense.date).getTime() !== new Date(row.date).getTime();
+        return new Date(draftExpense.date).getTime() !== new Date(originalExpense.date).getTime();
       default:
         return false;
     }
@@ -71,16 +77,17 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
   }));
 
   async function handleSubmit() {
-    if (!editingExpense) return;
+    if (!draftExpense || !originalExpense) return;
 
-    try {
-      await onUpdateExpense(editingExpense);
+    const isDirty = JSON.stringify(draftExpense) !== JSON.stringify(originalExpense);
 
-      setEditingCell(null);
-      setEditingExpense(null);
-    } catch (error) {
-      console.error("Expense update failed", error);
-    }
+    if (!isDirty) return;
+
+    await onUpdateExpense(draftExpense);
+
+    setDraftExpense(null);
+    setEditingCell(null);
+    setOriginalExpense(null);
   }
 
   function EditableCell({
@@ -103,7 +110,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
         return (
           <TextInput
             {...inputProps}
-            value={editingExpense?.title.toString() ?? ""}
+            value={draftExpense?.title.toString() ?? ""}
             onChange={(e) => updateDraftExpense("title", e.currentTarget.value)}
           />
         );
@@ -113,7 +120,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
           <Select
             {...inputProps}
             data={categoryOptions}
-            value={editingExpense?.categoryId ?? null}
+            value={draftExpense?.categoryId ?? null}
             onChange={(categoryId) => {
               if (categoryId) updateDraftExpense("categoryId", categoryId);
             }}
@@ -126,7 +133,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
       if (field === "date") {
         return (
           <DatePickerInput
-            value={editingExpense?.date ? new Date(editingExpense?.date) : null}
+            value={draftExpense?.date ? new Date(draftExpense?.date) : null}
             onBlur={() => setEditingCell(null)}
             onChange={(d) => {
               if (d) updateDraftExpense("date", new Date(d));
@@ -139,30 +146,43 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
       return (
         <TextInput
           {...inputProps}
-          value={editingExpense?.amount.toString() ?? ""}
-          onChange={(e) => updateDraftExpense("amount", Number(e.currentTarget.value))}
+          value={draftAmount}
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+
+            // Allow digits and optional decimal with up to 2 places
+            if (/^\d*\.?\d{0,2}$/.test(value)) {
+              setDraftAmount(value);
+
+              // Only update draft if it's a valid number
+              const parsed = parseFloat(value);
+              if (!isNaN(parsed)) {
+                updateDraftExpense("amount", parsed);
+              }
+            }
+          }}
         />
       );
     }
 
     const original = expenses.find((e) => e.id === rowId);
-    const isRowEditing = editingExpense?.id === rowId;
+    const isRowEditing = draftExpense?.id === rowId;
 
     let displayValue = value;
-    if (isRowEditing && original) {
+    if (isRowEditing && draftExpense) {
       switch (field) {
         case "title":
-          displayValue = editingExpense?.title ?? "";
+          displayValue = draftExpense.title;
           break;
         case "amount":
-          displayValue = editingExpense?.amount?.toFixed(2) ?? "";
+          displayValue = draftExpense.amount.toFixed(2);
           break;
         case "category":
-          const draftCategory = categories.find((c) => c.id === editingExpense?.categoryId);
+          const draftCategory = categories.find((c) => c.id === draftExpense?.categoryId);
           displayValue = draftCategory?.title ?? "";
           break;
         case "date":
-          displayValue = editingExpense?.date ? new Date(editingExpense.date).toISOString().split("T")[0] : "";
+          displayValue = draftExpense.date ? new Date(draftExpense.date).toISOString().split("T")[0] : "";
           break;
       }
     }
@@ -171,8 +191,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
         size="sm"
         style={{
           cursor: "pointer",
-          color: original && isDirtyValue(original, field) ? "#d9480f" : undefined,
-          fontWeight: original && isDirtyValue(original, field) ? 600 : undefined
+          fontWeight: original && isFieldDirty(rowId, field) ? 600 : undefined,
         }}
         onClick={() => {
           if (!isEditingRow(rowId)) {
@@ -183,6 +202,17 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
         }}
       >
         {displayValue}
+        {isFieldDirty(rowId, field) && (
+          <span
+            style={{
+              marginLeft: 6,
+              color: "#f08c00",
+              fontSize: 12,
+            }}
+          >
+            •
+          </span>
+        )}
       </Text>
     );
   }
