@@ -46,10 +46,28 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
     return editingExpense?.id === rowId;
   }
 
+  /** Check if a row's field has been edited but not submitted */
+  function isDirtyValue(row: Expense, field: EditableField) {
+    if (!editingExpense || editingExpense.id !== row.id) return false;
+
+    switch (field) {
+      case "title":
+        return editingExpense.title !== row.title;
+      case "amount":
+        return editingExpense.amount !== row.amount;
+      case "category":
+        return editingExpense.categoryId !== row.categoryId
+      case "date":
+        return new Date(editingExpense.date).getTime() !== new Date(row.date).getTime();
+      default:
+        return false;
+    }
+  }
+
   /** Mapping for category title to UUIDs */
   const categoryOptions = categories.map((c) => ({
     value: c.id, // UUID
-    label: c.title, // Display
+    label: c.title, // Display value
   }));
 
   async function handleSubmit() {
@@ -127,10 +145,35 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
       );
     }
 
+    const original = expenses.find((e) => e.id === rowId);
+    const isRowEditing = editingExpense?.id === rowId;
+
+    let displayValue = value;
+    if (isRowEditing && original) {
+      switch (field) {
+        case "title":
+          displayValue = editingExpense?.title ?? "";
+          break;
+        case "amount":
+          displayValue = editingExpense?.amount?.toFixed(2) ?? "";
+          break;
+        case "category":
+          const draftCategory = categories.find((c) => c.id === editingExpense?.categoryId);
+          displayValue = draftCategory?.title ?? "";
+          break;
+        case "date":
+          displayValue = editingExpense?.date ? new Date(editingExpense.date).toISOString().split("T")[0] : "";
+          break;
+      }
+    }
     return (
       <Text
         size="sm"
-        style={{ cursor: "pointer" }}
+        style={{
+          cursor: "pointer",
+          color: original && isDirtyValue(original, field) ? "#d9480f" : undefined,
+          fontWeight: original && isDirtyValue(original, field) ? 600 : undefined
+        }}
         onClick={() => {
           if (!isEditingRow(rowId)) {
             const expense = expenses.find((e) => e.id === rowId);
@@ -139,7 +182,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
           setEditingCell({ rowId, field });
         }}
       >
-        {field === "category" ? (categoryObj?.title ?? "") : value}
+        {displayValue}
       </Text>
     );
   }
