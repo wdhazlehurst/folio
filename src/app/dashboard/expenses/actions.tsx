@@ -98,6 +98,9 @@ export async function getUserExpenses(): Promise<Expense[]> {
       date: true,
       userId: true,
     },
+    orderBy: {
+      date: "desc",
+    }
   });
 
   // Flatten the object
@@ -109,5 +112,6 @@ export async function getUserExpenses(): Promise<Expense[]> {
     categoryId: e.category?.id ?? null,
     date: e.date,
     userId: e.userId,
+    // FIXME need to add description/note
   }));
 }
