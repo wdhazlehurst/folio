@@ -100,7 +100,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
     },
     orderBy: {
       date: "desc",
-    }
+    },
   });
 
   // Flatten the object
