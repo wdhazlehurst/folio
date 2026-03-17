@@ -1,11 +1,12 @@
 "use server";
 
-import type { Expense } from "@/types/expense";
+import { ExpenseSchema, type Expense } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
-import { ActionResult } from "@/types/api";
+import { ActionResult, QueryInput } from "@/types/api";
 
 /**
  * Add an `Expense` to the user's database table
@@ -114,4 +115,20 @@ export async function getUserExpenses(): Promise<Expense[]> {
     userId: e.userId,
     // FIXME need to add description/note
   }));
+}
+
+function buildQuery(input: QueryInput) {
+  const orderBy = input.sort;
+  return {
+    where,
+    orderBy,
+    select,
+    ...input.pagination,
+  };
+}
+
+export async function expenseQueryModel<T extends keyof PrismaClient>(model: T, input: QueryInput) {
+  const query = buildQuery(input);
+
+  return dbClient["expense"].findMany(query);
 }
