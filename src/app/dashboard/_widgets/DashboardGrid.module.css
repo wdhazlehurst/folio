@@ -1,0 +1,16 @@
+/* Replace triangle resize handle with a modern circle */
+:global(.react-resizable-handle) {
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255, 255, 255, 0.5) !important;
+  background: transparent !important;
+  bottom: 8px !important;
+  right: 8px !important;
+  padding: 0 !important;
+  cursor: se-resize;
+}
+
+:global(.react-resizable-handle::after) {
+  display: none !important;
+}
