@@ -75,7 +75,7 @@ export default function StatsSegmentsExpenses({
     );
 
   return (
-    <Paper withBorder p="md" radius="md">
+    <Paper p="md" radius="md" h="100%">
       <Group justify="space-between" mb="xs">
         <Group align="flex-end" gap="xs">
           <div>

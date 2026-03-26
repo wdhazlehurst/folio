@@ -26,12 +26,8 @@ const x = (_: DataRecord, i: number) => i;
 const yExpenses = (d: DataRecord) => d.expenses;
 const yIncome = (d: DataRecord) => d.income;
 
-const yTickFormat = Intl.NumberFormat("en", {
-  notation: "compact",
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-}).format;
+const fmt = Intl.NumberFormat("en", { notation: "compact", style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const yTickFormat = (tick: number | Date): string => fmt.format(tick as number);
 
 type Props = { monthlyData: MonthTotal[] };
 
@@ -51,7 +47,7 @@ export default function ExpenseIncomeChart({ monthlyData }: Props) {
     });
   }, [monthlyData, timeframe]);
 
-  const xTickFormat = useCallback((i: number) => data[i]?.month ?? "", [data]);
+  const xTickFormat = useCallback((tick: number | Date) => data[tick as number]?.month ?? "", [data]);
 
   return (
     <Paper p="md" h="100%" style={{ display: "flex", flexDirection: "column" }}>
@@ -76,7 +72,7 @@ export default function ExpenseIncomeChart({ monthlyData }: Props) {
 
       <VisBulletLegend items={legendItems} />
 
-      <VisXYContainer data={data} height={200}>
+      <VisXYContainer data={data} style={{ flex: 1, minHeight: 0 }}>
         <VisArea
           x={x}
           y={yIncome}

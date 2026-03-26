@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import GridLayout from "react-grid-layout";
+
+type RGLItem = NonNullable<React.ComponentProps<typeof GridLayout>["layout"]>[number];
 import { useElementSize } from "@mantine/hooks";
 import { Paper, Text, Title, Stack, Button, Group } from "@mantine/core";
 import { BarChart, DonutChart } from "@mantine/charts";
@@ -15,10 +17,10 @@ import "react-resizable/css/styles.css";
 import classes from "./DashboardGrid.module.css";
 
 const DEFAULT_LAYOUT = [
-  { i: "expense-stats",    x: 0, y: 0,  w: 7,  h: 5, minW: 3, minH: 3 },
-  { i: "category-donut",  x: 7, y: 0,  w: 5,  h: 5, minW: 3, minH: 3 },
-  { i: "spending-trend",  x: 0, y: 5,  w: 12, h: 6, minW: 4, minH: 3 },
-  { i: "expense-income",  x: 0, y: 11, w: 12, h: 8, minW: 4, minH: 4 },
+  { i: "expense-stats",   x: 0, y: 0,  w: 7,  h: 5, minW: 3, minH: 2 },
+  { i: "category-donut", x: 7, y: 0,  w: 5,  h: 5, minW: 3, minH: 2 },
+  { i: "spending-trend", x: 0, y: 5,  w: 12, h: 5, minW: 4, minH: 2 },
+  { i: "expense-income", x: 0, y: 10, w: 12, h: 7, minW: 4, minH: 3 },
 ];
 
 const CHART_COLORS = ["teal", "grape", "blue", "orange", "cyan", "red", "yellow"];
@@ -33,7 +35,16 @@ function WidgetCard({
   rearranging: boolean;
 }) {
   return (
-    <Paper p="md" h="100%" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <Paper
+      p="md"
+      h="100%"
+      style={{
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        border: rearranging ? "1.5px dashed var(--mantine-color-default-border)" : "1px solid var(--mantine-color-default-border)",
+      }}
+    >
       {rearranging && (
         <div
           className="drag-handle"
@@ -57,8 +68,24 @@ type Props = {
   monthlyData: MonthTotal[];
 };
 
+const LAYOUT_STORAGE_KEY = "dashboard-layout";
+
+function saveLayout(newLayout: RGLItem[]) {
+  try {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(newLayout));
+  } catch {}
+}
+
 export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend, monthlyData }: Props) {
-  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+  const [layout, setLayout] = useState<RGLItem[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_LAYOUT;
+    try {
+      const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_LAYOUT;
+    } catch {
+      return DEFAULT_LAYOUT;
+    }
+  });
   const [rearranging, setRearranging] = useState(false);
   const { ref, width } = useElementSize();
 
@@ -95,8 +122,8 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
       <div ref={ref}>
         <GridLayout
           layout={lockedLayout}
-          onDragStop={(newLayout) => setLayout(newLayout)}
-          onResizeStop={(newLayout) => setLayout(newLayout)}
+          onDragStop={(newLayout) => { setLayout(newLayout); saveLayout(newLayout); }}
+          onResizeStop={(newLayout) => { setLayout(newLayout); saveLayout(newLayout); }}
           cols={12}
           rowHeight={42}
           width={width || 1200}
@@ -105,7 +132,16 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
           margin={[12, 12]}
         >
           <div key="expense-stats">
-            <Paper p="md" h="100%" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <Paper
+              p="md"
+              h="100%"
+              style={{
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                border: rearranging ? "1.5px dashed var(--mantine-color-default-border)" : "1px solid var(--mantine-color-default-border)",
+              }}
+            >
               {rearranging && (
                 <div
                   className="drag-handle"
@@ -136,7 +172,7 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
           <div key="spending-trend">
             <WidgetCard title="6-Month Spending Trend" rearranging={rearranging}>
               <BarChart
-                h={250}
+                h="100%"
                 data={barData}
                 dataKey="month"
                 series={[{ name: "Spending", color: "teal" }]}
