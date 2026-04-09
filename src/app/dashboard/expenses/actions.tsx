@@ -7,6 +7,7 @@ import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
 import { ActionResult, QueryInput } from "@/types/api";
+import { getModelData } from "@/services/factory.service";
 
 /**
  * Add an `Expense` to the user's database table
@@ -127,8 +128,15 @@ function buildQuery(input: QueryInput) {
   };
 }
 
-export async function expenseQueryModel<T extends keyof PrismaClient>(model: T, input: QueryInput) {
-  const query = buildQuery(input);
+/**
+ * Fetch expenses given query filters and sorting
+ * @param query
+ * @returns
+ */
+export async function expenseApi(query: QueryInput<Expense>) {
+  const userId = await getUserId();
 
-  return dbClient["expense"].findMany(query);
+  const results = await getModelData<Expense, typeof dbClient.expense>(dbClient.expense, query, { userId });
+
+  return results;
 }
