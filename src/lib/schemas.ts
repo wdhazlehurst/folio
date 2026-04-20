@@ -1,6 +1,8 @@
 // Zod Validation
 import { z } from "zod";
 import validator from "validator";
+import { MAX_PAGINATION, DEFAULT_PAGINATION } from "@/constants";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export const emailSchema = z
   .string()
@@ -47,3 +49,36 @@ export const registerSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+export type FilterOps<T> = T extends Date
+  ? { before?: string; after?: string }
+  : T extends number | Decimal
+    ? { min?: number; max?: number }
+    : T extends string
+      ? { contains?: string; eq?: string; in?: string[] }
+      : { eq?: T };
+
+export const QueryInputSchema = z.object({
+  // Keys are model fields, values are FilterOps
+  filters: z.record(z.string(), z.any()).optional(),
+  // Keys are model fields, values must be "asc" or "desc"
+  sort: z.record(z.string(), z.enum(["asc", "desc"])).optional(),
+  // There should be a "select" parameter as well, but that is chosen by the backend
+
+  // Pagination includes the page size (limit) and page number (page)
+  pagination: z.object({
+    limit: z
+      .number()
+      .int("Limit must be a positive integer")
+      .positive("Limit must be positive integer")
+      .max(MAX_PAGINATION, `Maximum limit is ${MAX_PAGINATION}`)
+      .optional(),
+    page: z
+      .number()
+      .int("Page number must be a positive integer")
+      .min(1, "Page number must be a positive integer")
+      .optional(),
+  }),
+});
+
+export type QueryInput = z.infer<typeof QueryInputSchema>;

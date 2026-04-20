@@ -1,42 +1,70 @@
-"use server";
-import { QueryInput } from "@/types/api";
+import { MAX_PAGINATION, DEFAULT_PAGINATION } from "@/constants";
+import { QueryInput, QueryInputSchema } from "./schemas";
 
-/**
- * Transform query input to a Prisma ORM query
- * @param input Query input, including filters and sorting
- * @returns The Prisma ORM query equivalent
- */
-export async function transformToPrisma<T>(input: QueryInput<T>) {
-  const where: any = {};
+export class QuerySerializer<T> {
+  private validatedData: QueryInput;
 
-  if (input.filters) {
-    Object.entries(input.filters).forEach(([field, ops]: [string, any]) => {
-      if (ops.before || ops.after) {
-        where[field] = {
-          ...(ops.after && { gte: new Date(ops.after) }),
-          ...(ops.before && { lte: new Date(ops.before) }),
-        };
-      } else if (ops.min !== undefined || ops.max !== undefined) {
-        where[field] = {
-          ...(ops.min !== undefined && { gte: ops.min }),
-          ...(ops.max !== undefined && { lte: ops.max }),
-        };
-      } else if (ops.contains) {
-        where[field] = { contains: ops.contains, mode: "insensitive" };
-      } else if (ops.eq) {
-        where[field] = ops.eq;
-      } else if (ops.in) {
-        where[field] = { in: ops.in };
-      }
-    });
+  constructor(
+    private userId: string,
+    rawInput: any
+  ) {
+    const result = QueryInputSchema.safeParse(rawInput);
+
+    if (!result.success) {
+      const errorMsg = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");
+      throw new Error(errorMsg);
+    }
+
+    this.validatedData = result.data;
   }
 
-  return {
-    where,
-    orderBy: input.sort,
-    take: Math.min(input.pagination.limit || 20, 100),
-    skip: ((input.pagination.page || 1) - 1) * (input.pagination.limit || 20),
-    // Map select array to Prisma's { field: true } object
-    select: input.select?.reduce((acc, field) => ({ ...acc, [field]: true }), {}),
-  };
-}
+  public transform() {
+    const { filters, sort, select, pagination } = this.validatedData;
+
+    return {
+      where: {
+        ...this.parseFilters(filters),
+        userId: this.userId,
+      },
+      orderBy: sort,
+      take: pagination.limit || DEFAULT_PAGINATION,
+      skip: ((pagination.page || 1) - 1) * (pagination.limit || DEFAULT_PAGINATION),
+      select: select?.reduce((acc, field) => ({ ...acc, [field]: true }), {}),
+    };
+  }
+
+  private parseFilters(filters: any) {
+    if (!filters) return {};
+
+    const where: any = {};
+
+    for (const [key, ops] of Object.entries(filters)) {
+      const fieldOps: any = ops;
+
+      //String handling (Fuzzy and exact)
+      if (fieldOps.contains) {
+        where[key] = { contains: fieldOps.contains, mode: "insensitive" };
+      } else if (fieldOps.eq) {
+        where[key] = fieldOps.eq;
+      } else if (fieldOps.in) {
+        where[key] = { in: fieldOps.in };
+      }
+
+      // Numerical handling (min/max -> gte/lte)
+      if (fieldOps.min !== undefined || fieldOps.max !== undefined) {
+        where[key] = {
+          ...(fieldOps.min !== undefined && { gte: fieldOps.min }),
+          ...(fieldOps.max !== undefined && { lte: fieldOps.max }),
+        };
+      }
+
+      // Date handling (before/after -> lt/gt)
+      if (fieldOps.before || fieldOps.after) {
+        where[key] = {
+          ...(fieldOps.before && { lt: new Date(fieldOps.before) }),
+          ...(fieldOps.after && { gt: new Date(fieldOps.after) }),
+        };
+      }
+    }
+    return where;
+  }

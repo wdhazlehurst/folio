@@ -17,20 +17,3 @@ export type FilterOps<T> = T extends Date
     : T extends string
       ? { contains: string; eq?: string; in?: string[] }
       : { eq?: T };
-
-export type QueryInput<T> = {
-  // Filters are a partial map of the Model's keys to our custom FilterOps
-  filters?: {
-    [K in keyof T]?: FilterOps<T[K]>;
-  };
-  // Sorting is restricted to the keys of the Model
-  sort?: {
-    [K in keyof T]?: "asc" | "desc";
-  };
-  // Selection returns an array of the keys of the Model
-  select?: (keyof T)[];
-  pagination: {
-    limit?: number;
-    page?: number;
-  };
-};
