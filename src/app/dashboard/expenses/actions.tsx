@@ -139,11 +139,13 @@ export async function expenseApi(query: any) {
       id: true,
       title: true,
       amount: true,
-      categoryId: true,
       date: true,
-      category: true,
+      category: {
+        select: { title: true, id: true },
+      },
     };
 
+    console.log(prismaQuery);
     const results = await dbClient.expense.findMany(prismaQuery);
 
     const out = results.map((expense) => ({

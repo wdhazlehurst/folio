@@ -38,14 +38,13 @@ export default function ExpensesPage() {
 
     const query = {
       filters: {
-        title: { contains: "food" },
-        amount: { min: 10, max: 20 },
+        title: { contains: "food lion" },
+        amount: { min: 10, max: 50 },
         date: {
           after: "2026-02-01T00:00:00Z",
           before: "2026-05-01T00:00:00Z",
         },
       },
-      // Ensure these fields exist if your Zod schema requires them
       pagination: { limit: 10, page: 1 },
     };
 
@@ -57,8 +56,6 @@ export default function ExpensesPage() {
         setError(results.error as string);
       } else {
         console.log("API Success! Results:", results);
-        // If you want the table to update with these results:
-        // setExpenses(results);
       }
     } catch (err: any) {
       setError(err.message);
