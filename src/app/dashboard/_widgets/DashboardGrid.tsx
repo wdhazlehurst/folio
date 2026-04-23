@@ -17,9 +17,9 @@ import "react-resizable/css/styles.css";
 import classes from "./DashboardGrid.module.css";
 
 const DEFAULT_LAYOUT = [
-  { i: "expense-stats",   x: 0, y: 0,  w: 7,  h: 5, minW: 3, minH: 2 },
-  { i: "category-donut", x: 7, y: 0,  w: 5,  h: 5, minW: 3, minH: 2 },
-  { i: "spending-trend", x: 0, y: 5,  w: 12, h: 5, minW: 4, minH: 2 },
+  { i: "expense-stats", x: 0, y: 0, w: 7, h: 5, minW: 3, minH: 2 },
+  { i: "category-donut", x: 7, y: 0, w: 5, h: 5, minW: 3, minH: 2 },
+  { i: "spending-trend", x: 0, y: 5, w: 12, h: 5, minW: 4, minH: 2 },
   { i: "expense-income", x: 0, y: 10, w: 12, h: 7, minW: 4, minH: 3 },
 ];
 
@@ -42,7 +42,9 @@ function WidgetCard({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        border: rearranging ? "1.5px dashed var(--mantine-color-default-border)" : "1px solid var(--mantine-color-default-border)",
+        border: rearranging
+          ? "1.5px dashed var(--mantine-color-default-border)"
+          : "1px solid var(--mantine-color-default-border)",
       }}
     >
       {rearranging && (
@@ -94,15 +96,9 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
     [categoryData]
   );
 
-  const barData = useMemo(
-    () => monthlyTrend.map((m) => ({ month: m.month, Spending: m.total })),
-    [monthlyTrend]
-  );
+  const barData = useMemo(() => monthlyTrend.map((m) => ({ month: m.month, Spending: m.total })), [monthlyTrend]);
 
-  const lockedLayout = useMemo(
-    () => layout.map((item) => ({ ...item, static: !rearranging })),
-    [layout, rearranging]
-  );
+  const lockedLayout = useMemo(() => layout.map((item) => ({ ...item, static: !rearranging })), [layout, rearranging]);
 
   return (
     <Stack gap="xs">
@@ -122,8 +118,14 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
       <div ref={ref}>
         <GridLayout
           layout={lockedLayout}
-          onDragStop={(newLayout) => { setLayout(newLayout); saveLayout(newLayout); }}
-          onResizeStop={(newLayout) => { setLayout(newLayout); saveLayout(newLayout); }}
+          onDragStop={(newLayout) => {
+            setLayout(newLayout);
+            saveLayout(newLayout);
+          }}
+          onResizeStop={(newLayout) => {
+            setLayout(newLayout);
+            saveLayout(newLayout);
+          }}
           cols={12}
           rowHeight={42}
           width={width || 1200}
@@ -139,7 +141,9 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
-                border: rearranging ? "1.5px dashed var(--mantine-color-default-border)" : "1px solid var(--mantine-color-default-border)",
+                border: rearranging
+                  ? "1.5px dashed var(--mantine-color-default-border)"
+                  : "1px solid var(--mantine-color-default-border)",
               }}
             >
               {rearranging && (
@@ -159,13 +163,7 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
 
           <div key="category-donut">
             <WidgetCard title="Category Breakdown" rearranging={rearranging}>
-              <DonutChart
-                data={donutData}
-                h="100%"
-                tooltipDataSource="segment"
-                withLabelsLine
-                withLabels
-              />
+              <DonutChart data={donutData} h="100%" tooltipDataSource="segment" withLabelsLine withLabels />
             </WidgetCard>
           </div>
 
