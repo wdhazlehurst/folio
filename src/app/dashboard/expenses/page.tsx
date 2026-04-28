@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Stack } from "@mantine/core";
-import { addExpense, getUserExpenses, updateExpense } from "@/app/dashboard/expenses/actions";
+import { Stack, Button, Group, Text, Code } from "@mantine/core"; // Added Button and Group
+import { addExpense, getUserExpenses, updateExpense, expenseApi } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
 import { Expense, ExpenseCategory } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
@@ -14,23 +14,12 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const handleUpdateExpense = async (updatedExpense: Expense) => {
-    const response = await updateExpense(updatedExpense);
-
-    if (response && !response.ok) {
-      setError(response.error);
-      return;
-    }
-
-    await refreshData();
-  };
+  const [loading, setLoading] = useState(false);
 
   const refreshData = useCallback(async () => {
     try {
       const [categoriesData, expensesData] = await Promise.all([getUserExpenseCategories(), getUserExpenses()]);
-
-      setCategories(categoriesData); // keep full objects
+      setCategories(categoriesData);
       setExpenses(expensesData);
     } catch (error) {
       setError("Failed to load data");
@@ -42,34 +31,83 @@ export default function ExpensesPage() {
     refreshData();
   }, [refreshData]);
 
-  const handleAddExpense = async (expenseData: {
-    title: string;
-    amount: number;
-    category: string;
-    date: Date;
-    categoryId: string;
-  }) => {
-    const response = await addExpense(expenseData);
+  // --- NEW TEST QUERY FUNCTION ---
+  const runTestQuery = async () => {
+    setLoading(true);
+    setError(null);
 
+    const query = {
+      filters: {
+        title: { contains: "food lion" },
+        amount: { min: 10, max: 50 },
+        date: {
+          after: "2026-02-01T00:00:00Z",
+          before: "2026-05-01T00:00:00Z",
+        },
+      },
+      pagination: { limit: 10, page: 1 },
+    };
+
+    try {
+      console.log("Sending query to Serializer:", query);
+      const results = await expenseApi(query);
+
+      if (results && "error" in results) {
+        setError(results.error as string);
+      } else {
+        console.log("API Success! Results:", results);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateExpense = async (updatedExpense: Expense) => {
+    const response = await updateExpense(updatedExpense);
     if (response && !response.ok) {
       setError(response.error);
       return;
     }
-
-    await refreshData(); // reload everything
+    await refreshData();
   };
 
-  console.log(expenses);
+  const handleAddExpense = async (expenseData: any) => {
+    const response = await addExpense(expenseData);
+    if (response && !response.ok) {
+      setError(response.error);
+      return;
+    }
+    await refreshData();
+  };
 
   return (
     <Stack>
-      {error && <div>{error}</div>}
+      {/* Test Section */}
+      <Group justify="space-between" p="md" style={{ border: "1px dashed #228be6", borderRadius: "8px" }}>
+        <Text size="sm" fw={500}>
+          Query Serializer Test Bench:
+        </Text>
+        <Button variant="light" onClick={runTestQuery} loading={loading}>
+          Execute getResponse()
+        </Button>
+      </Group>
+
+      {error && (
+        <Text color="red" size="sm" bg="red.0" p="xs">
+          <strong>Error:</strong> {error}
+        </Text>
+      )}
+
       <NewExpenseForm
         categories={categories.map((c) => ({ value: c.id, label: c.title }))}
         onSubmit={handleAddExpense}
         onUpdate={refreshData}
       />
+
       <ExpenseTable expenses={expenses} categories={categories} onUpdateExpense={handleUpdateExpense} />
+
       <CategoryManager categories={categories} onUpdate={refreshData} />
     </Stack>
   );

@@ -1,11 +1,14 @@
 "use server";
 
-import type { Expense } from "@/types/expense";
+import { ExpenseSchema, type Expense } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
-import { ActionResult } from "@/types/api";
+import { ActionResult, QueryInput } from "@/types/api";
+import { getModelData } from "@/services/factory.service";
+import { QuerySerializer } from "@/lib/query-builder";
 
 /**
  * Add an `Expense` to the user's database table
@@ -100,7 +103,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
     },
     orderBy: {
       date: "desc",
-    }
+    },
   });
 
   // Flatten the object
@@ -114,4 +117,45 @@ export async function getUserExpenses(): Promise<Expense[]> {
     userId: e.userId,
     // FIXME need to add description/note
   }));
+}
+
+/**
+ * Fetch expenses given query filters and sorting
+ * @param query
+ * @returns
+ */
+export async function expenseApi(query: any) {
+  const userId = await getUserId();
+
+  if (!userId) {
+    redirect("/auth/login");
+  }
+
+  try {
+    const serializer = new QuerySerializer(userId, query);
+    const prismaQuery = serializer.transform();
+
+    prismaQuery.select = {
+      id: true,
+      title: true,
+      amount: true,
+      date: true,
+      category: {
+        select: { title: true, id: true },
+      },
+    };
+
+    console.log(prismaQuery);
+    const results = await dbClient.expense.findMany(prismaQuery);
+
+    const out = results.map((expense) => ({
+      ...expense,
+      amount: expense.amount.toNumber(),
+    }));
+    console.log(out);
+    return out;
+  } catch (error: any) {
+    console.error("Query error:", error.message);
+    return { error: error.message };
+  }
 }
