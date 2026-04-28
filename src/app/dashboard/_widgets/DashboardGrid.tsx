@@ -68,6 +68,7 @@ type Props = {
   categoryData: CategorySlice[];
   monthlyTrend: MonthTotal[];
   monthlyData: MonthTotal[];
+  monthlyAssets: MonthTotal[];
 };
 
 const LAYOUT_STORAGE_KEY = "dashboard-layout";
@@ -78,7 +79,7 @@ function saveLayout(newLayout: RGLItem[]) {
   } catch {}
 }
 
-export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend, monthlyData }: Props) {
+export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend, monthlyData, monthlyAssets }: Props) {
   const [layout, setLayout] = useState<RGLItem[]>(() => {
     if (typeof window === "undefined") return DEFAULT_LAYOUT;
     try {
@@ -180,8 +181,8 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
           </div>
 
           <div key="expense-income">
-            <WidgetCard title="Expenses vs Income" rearranging={rearranging}>
-              <ExpenseIncomeChart monthlyData={monthlyData} />
+            <WidgetCard title="Monthly Overview" rearranging={rearranging}>
+              <ExpenseIncomeChart monthlyData={monthlyData} monthlyAssets={monthlyAssets} />
             </WidgetCard>
           </div>
         </GridLayout>

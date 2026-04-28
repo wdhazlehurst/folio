@@ -25,7 +25,9 @@ model User {
   password      String
   role          Role                  @default(USER)
   expenses      Expense[]
-  expenseCategories ExpenseCategory[] 
+  expenseCategories ExpenseCategory[]
+  assets        Asset[]
+  assetCategories AssetCategory[]
 }
 
 model ExpenseCategory {
@@ -53,4 +55,32 @@ model Expense {
   date          DateTime          @default(now()) @db.Date
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+}
+
+model AssetCategory {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(32)
+  description String?  @db.VarChar(128)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  assets      Asset[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([title, userId])
+  @@index([userId])
+}
+
+model Asset {
+  id         String          @id @default(uuid())
+  title      String          @db.VarChar(32)
+  amount     Decimal         @db.Money
+  isCash     Boolean         @default(false)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  categoryId String?
+  category   AssetCategory?  @relation(fields: [categoryId], references: [id])
+  date       DateTime        @default(now()) @db.Date
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 }
