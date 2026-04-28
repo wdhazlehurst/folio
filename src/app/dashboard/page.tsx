@@ -1,5 +1,5 @@
 import { getDashBoardSummary, getMonthTotals, getMonthlyTrend } from "./summary-db";
-import DashboardGrid from "./_widgets/DashboardGrid";
+import DashboardGridClient from "./_widgets/DashboardGridClient";
 
 export default async function DashboardPage() {
   const [{ total, topBar, categories }, { deltaPct }, monthlyTrend] = await Promise.all([
@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <DashboardGrid
+    <DashboardGridClient
       expenseStats={{ total, segments: topBar, deltaPct }}
       categoryData={categories}
       monthlyTrend={monthlyTrend}
@@ -17,3 +17,4 @@ export default async function DashboardPage() {
     />
   );
 }
+
