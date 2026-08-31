@@ -1,0 +1,308 @@
+# INDEX.md — Folio Repository Map
+
+**Read this file first.** It is the entry point for any AI agent working in this repo. It replaces
+searching the tree file-by-file.
+
+## Rules for agents
+
+Follow these on every task in this repo.
+
+1. **Never make assumptions — ask before assuming.** This goes both ways: if the user appears to be
+   assuming something, ask them to clarify rather than going along with it.
+2. **When fully finished with a task or issue, update the relevant `.md` files** to reflect that it's
+   done.
+3. **Before making a large change, think about how it may affect other systems.** If anything comes up,
+   ask first.
+4. **Don't update the docs as you go.** The user prompts for a doc update at the end of a work session;
+   that is when `CURRENT.md`, `OVERVIEW.md`, and `AGENTHISTORY.md` normally get written. Constant
+   context updates burn tokens for little benefit — don't do them.
+5. **Two exceptions, where you should write it down immediately without being asked:**
+   - **A significant bug found off-task.** Something real surfaces that isn't related to the current
+     work and the user doesn't want to chase it now — record it so it isn't lost. Small papercuts go in
+     `CURRENT.md` § Known minor bugs; blocking or security issues go in `OVERVIEW.md` § 5.
+   - **Hard-won context.** If several prompts were spent digging out a fact that wasn't easy to find,
+     and it was finally pinned down, record it right away — in `AGENTHISTORY.md` if it's a trap or dead
+     end, in `INDEX.md` if it's a durable fact about the codebase. Only when it genuinely took real
+     effort; a fact learned by opening one file does not qualify.
+
+   If you think something clears this bar but you're unsure, ask rather than writing unprompted.
+
+## The four docs
+
+| File               | Purpose                                                                                      | Who writes it                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `INDEX.md`         | Static map of the codebase: what every file is, conventions, commands, data model.             | Update when files are added/moved/deleted or a convention changes.        |
+| `CURRENT.md`       | The task at hand right now, long term goals, and known minor bugs. Fast-moving.                 | Update when the task changes, or when a small bug is found or squashed.   |
+| `OVERVIEW.md`      | Full project state: goals, roadmap, status by area, and all known issues incl. blocking ones.   | Update when you fix a bug, finish a task, or discover a new one.          |
+| `AGENTHISTORY.md`  | Append-only log. Each agent records what it did, what it learned, and traps it hit.             | Append a dated entry only for significant sessions. Never rewrite history.|
+
+`CURRENT.md` vs `OVERVIEW.md`: `CURRENT.md` is the narrow "what am I doing today" view plus small
+papercuts. `OVERVIEW.md` is the full picture — every feature area's status, the prioritized task list,
+and blocking/security issues. Minor bugs live in `CURRENT.md`; blockers live in `OVERVIEW.md`. Issue IDs
+(B1, B2, …) are shared between them, so don't renumber.
+
+Workflow for a new agent: read `INDEX.md` → read `CURRENT.md` (what's active) → read `OVERVIEW.md`
+(full state/bugs) → skim the last few entries of `AGENTHISTORY.md` → work → update the relevant docs
+per the rules above.
+
+---
+
+## What this project is
+
+**Folio** — a personal finance dashboard web app. Users register, log expenses and assets under
+user-owned categories, and view aggregated spending/net-worth charts on a draggable widget dashboard.
+
+Single Next.js app (App Router), server actions for all data access (no REST layer beyond NextAuth),
+Postgres via Prisma, Mantine as the UI system.
+
+## Stack (from `package.json`, exact versions there)
+
+- **Next.js 15** (App Router, `--turbopack` in dev), **React 19**, **TypeScript 5** (`strict: true`)
+- **Prisma 6** + `@prisma/client` → **PostgreSQL 18** (via Docker Compose)
+- **NextAuth v5 beta** (`next-auth@5.0.0-beta.28`), Credentials provider, JWT sessions, `bcrypt`
+- **Mantine 8** (`@mantine/core`, `/charts`, `/dates`, `/form`, `/hooks`) — primary UI + chart lib today
+- **@unovis/react + @unovis/ts 1.6** — newer chart lib, being adopted (currently only `ExpenseIncomeChart`)
+- **react-grid-layout 2.x** — draggable/resizable dashboard widgets
+- **zod 4** — schemas for auth, query input, and domain types
+- **framer-motion** — page transitions in the dashboard shell
+- `recharts` is a transitive/unused direct dep — Mantine charts wraps it; do not import it directly
+- `@tabler/icons-react`, `dayjs`, `validator`
+
+## Commands
+
+```bash
+docker compose up -d          # Postgres 18 on :5432 (db folio_dev, postgres/postgres)
+npx prisma generate           # REQUIRED after clone — client is not committed
+npx prisma migrate dev        # apply/author migrations
+npm run dev                   # Next dev server on :3000 (turbopack)
+npm run build                 # production build
+npm run lint                  # eslint (next/core-web-vitals + next/typescript)
+npm run prettier              # format (printWidth 120, semi, double quotes, es5 trailing comma)
+npx tsc --noEmit              # typecheck — see OVERVIEW.md, this currently FAILS
+```
+
+Env vars (no `.env` is committed — `.gitignore` excludes `.env*`):
+`DATABASE_URL` (Postgres), `NEXTAUTH_SECRET` (required; entrypoint hard-fails without it),
+`NEXTAUTH_URL`.
+
+## Path aliases (`tsconfig.json`)
+
+| Alias             | Resolves to     | Note                                            |
+| ----------------- | --------------- | ----------------------------------------------- |
+| `@/*`             | `./src/*`       | e.g. `@/lib/prisma`, `@/constants`              |
+| `@/components/*`  | `./components/*`| root-level, **not** under `src/`                |
+| `@/css/*`         | `./css/*`       | root-level shared CSS modules                   |
+| `@/types/*`       | `./types/*`     | root-level, **not** under `src/`                |
+| `@/auth`          | `./src/lib/auth.ts` | direct file alias                            |
+
+`components/`, `css/`, and `types/` live at the repo root, outside `src/`. Widget-local CSS modules
+live next to their component instead.
+
+---
+
+## File map
+
+### Root config
+
+| Path                   | What it is                                                                  |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `package.json`         | Deps + scripts. `version` is read by `DashboardNavbar` to display `v0.0.1`.  |
+| `tsconfig.json`        | `strict: true`, `skipLibCheck: true` (so `.d.ts` files are NOT typechecked). |
+| `next.config.ts`       | Empty config object.                                                        |
+| `eslint.config.mjs`    | Flat config, extends `next/core-web-vitals` + `next/typescript`.            |
+| `docker-compose.yml`   | Postgres 18 service `db` only. The app is not containerized in compose.     |
+| `Dockerfile`           | 2-stage node:24 build → node:24-slim runtime. Runs `prisma generate` + build.|
+| `docker-entrypoint.sh` | Requires `NEXTAUTH_SECRET`, runs `prisma migrate deploy`, then the CMD.      |
+| `README.md`            | Mostly stock create-next-app text + docker compose usage.                    |
+
+### `prisma/`
+
+- `schema.prisma` — datasource `postgresql`, generator `prisma-client-js`. Models below.
+- `migrations/` — 6 migrations, latest `20260428212808_add_assets`.
+
+**Data model** (all IDs are `uuid` strings; money is Postgres `MONEY` → Prisma `Decimal`; `date` is `@db.Date`):
+
+```
+User            id, email(unique), password(bcrypt), role(Role enum: USER|ADMIN|MODERATOR)
+                → expenses[], expenseCategories[], assets[], assetCategories[]
+
+ExpenseCategory id, title(≤32), description?(≤128), userId, createdAt, updatedAt
+                @@unique([title, userId])  @@index([userId])
+Expense         id, title(≤32), amount(Decimal/Money), userId, categoryId?, date, createdAt, updatedAt
+
+AssetCategory   id, title(≤32), description?(≤128), userId, createdAt, updatedAt
+                @@unique([title, userId])  @@index([userId])
+Asset           id, title(≤32), amount(Decimal/Money), isCash(bool), userId, categoryId?, date, ...
+```
+
+Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expense has **no**
+`description` column despite the type allowing one (see `OVERVIEW.md`).
+
+### `types/` (root-level, `@/types/*`)
+
+| File              | Contents                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| `api.ts`          | `ActionResult` = `{ok:true} \| {ok:false,error}` — the standard server-action return. `ResultData<T>`, `FilterOps<T>`. |
+| `expense.ts`      | Zod `ExpenseSchema`/`ExpenseCategorySchema` + inferred types, plus `NewExpense`/`NewExpenseCategory` interfaces (client→server payloads). |
+| `asset.ts`        | Same shape for assets: `AssetSchema`, `AssetCategorySchema`, `NewAsset`, `NewAssetCategory`.        |
+| `next-auth.d.ts`  | Augments NextAuth `User`/`Session`/`JWT` with `id`, `email`, `role`.                                |
+| `types.d.ts`      | Older, conflicting NextAuth `User` augmentation. Effectively dead (see OVERVIEW). Not typechecked because of `skipLibCheck`. |
+
+### `src/lib/` — server-side core
+
+| File               | Exports / role                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `auth.ts`          | **The auth hub.** `NextAuth()` config (Credentials provider, bcrypt compare, JWT 7-day sessions, custom pages), exports `handlers, signIn, signOut, auth`, plus `requireRole(roles[])` (redirects to `/auth/login` or `/unauthorized`) and `getUserId(): Promise<string \| null>`. Every server action starts by calling `getUserId()`. |
+| `prisma.ts`        | `export const dbClient: PrismaClient` — a bare `new PrismaClient()`. **Import name is `dbClient`, not `prisma`.**          |
+| `errors.ts`        | `UserInputError` — thrown by validators, caught in actions to surface a message to the user.                              |
+| `validators.ts`    | `validateEmail`, `validatePassword` — throw `UserInputError`.                                                             |
+| `schemas.ts`       | `emailSchema`, `passwordSchema` (6+ chars w/ complexity rules, or 16+ char passphrase), `registerSchema`, `QueryInputSchema` (`filters`/`sort`/`pagination`) + `QueryInput`, a second copy of `FilterOps<T>`. |
+| `query-builder.ts` | `QuerySerializer<T>` class — validates raw query input against `QueryInputSchema`, `transform()` returns a Prisma args object (`where`/`orderBy`/`take`/`skip`/`select`); `parseFilters` maps `contains/eq/in`, `min/max`→`gte/lte`, `before/after`→`lt/gt`. **Currently has a syntax error — see OVERVIEW.md.** |
+| `zodMantine.ts`    | `zodValidate(schema)` → Mantine `useForm` `validate` function (first error per field).                                     |
+| `querys/query.ts`  | Empty file.                                                                                                              |
+| `querys/types.ts`  | Fully commented out. Both `querys/` files are abandoned scaffolding.                                                       |
+
+### `src/services/`
+
+- `factory.service.ts` — `getModelData(modelDelegate, input, fixedWhere)`, a generic paginated
+  find+count helper meant to work with any Prisma delegate. **Currently broken** (imports symbols
+  that don't exist). Not functionally used.
+
+### `src/constants.ts`
+
+`DEFAULT_USER_ROLE`, `ADMIN_USER_ROLE`, `INVALID_INPUT_ERROR`, `SALT_ROUNDS` (10),
+`DEFAULT_PAGINATION` (50), `MAX_PAGINATION` (1000).
+
+### `src/app/` — routes
+
+```
+layout.tsx            Root layout → <Providers>
+providers.tsx         SessionProvider + MantineProvider (localStorage color scheme key "mantine-color-scheme")
+page.tsx              Public landing page ("Welcome to FinanceApp" copy — brand mismatch, app is "Folio")
+globals.css           Base resets + light/dark CSS vars
+theme.ts              DEAD — MUI createTheme; @mui is not installed and nothing imports this
+page.module.css       create-next-app leftover
+
+api/auth/[...nextauth]/route.ts    re-exports { GET, POST } from @/auth
+
+auth/login/page.tsx        client page, redirects to /dashboard if already authenticated
+auth/login/LoginForm.tsx   the form
+auth/login/actions.tsx     loginWithCredentials() — client-side signIn wrapper mapping NextAuth error codes
+auth/register/page.tsx     + RegisterForm.tsx
+auth/register/actions.tsx  "use server" registerUser() (validate → dup check → bcrypt → create), loginUser()
+
+dashboard/layout.tsx       server layout: await requireRole(["*"]) then <DashboardShell>
+dashboard/page.tsx         server page: parallel-fetches summaries and renders <DashboardGridClient>
+dashboard/DashboardLayout.tsx  older/alternate server dashboard body — NOT routed, superseded by page.tsx
+dashboard/summary-db.ts    "use server" aggregation helpers (see below)
+dashboard/charts/page.tsx  stub — just a "Charts" title
+dashboard/settings/        SettingsPage + DisplayNameSetting(+WithSession) — UI only, no persistence yet
+dashboard/expenses/        expenses CRUD page (see below)
+dashboard/worth/           assets CRUD page (see below)
+dashboard/_widgets/        dashboard widgets (see below)
+```
+
+#### `dashboard/summary-db.ts` — all dashboard aggregation
+
+Every function calls `getUserId()` and throws `"Unauthorized"` if absent.
+
+- `getDashBoardSummary({month?})` → `{ total, categories: CategorySlice[], topBar }` — expense totals
+  grouped by category; `topBar` is top 4 + an aggregated `"Others"` slice.
+- `getMonthTotals()` → `{ current, previous, deltaPct }` — this month vs last month expenses.
+- `getMonthlyTrend(months = 6)` → `MonthTotal[]` — expenses bucketed by `"MMM YY"` label.
+- `getMonthlyAssetTrend(months = 6)` → same for assets.
+- Types `CategorySlice { label, value, percent }`, `MonthTotal { month, total }`, `DashboardSummary`.
+- Bucketing is done in JS with a `Map` keyed by `toLocaleString("default", {month:"short", year:"2-digit"})`.
+
+#### `dashboard/_widgets/`
+
+| File                            | Role                                                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DashboardGridClient.tsx`       | Thin `"use client"` wrapper: `dynamic(() => import("./DashboardGrid"), { ssr: false })`. Exists because react-grid-layout can't SSR. Server pages import **this**, never `DashboardGrid` directly. |
+| `DashboardGrid.tsx`             | The dashboard itself. `GridLayout` 12 cols, `rowHeight` 42, layout persisted to `localStorage["dashboard-layout"]`. "Rearrange" toggle flips widgets between `static` and draggable/resizable (`draggableHandle=".drag-handle"`). Holds `DEFAULT_LAYOUT` (4 widgets: `expense-stats`, `category-donut`, `spending-trend`, `expense-income`) and `CHART_COLORS`. |
+| `DashboardGrid.module.css`      | Grid/widget styling.                                                                                                                                   |
+| `StatsSegmentsExpenses.tsx`     | Month-to-date total + segmented `Progress` bar by category + per-category cards + MoM delta arrow. Note: "up" is styled red (spending more = bad).       |
+| `StatsSegmentsExpenses.module.css` | Its styles.                                                                                                                                          |
+| `ExpenseIncomeChart.tsx`        | **The only Unovis chart.** `VisXYContainer` + two `VisArea` (expenses red `#ff6b6b`, assets green `#69db7c`) + `VisAxis` + `VisBulletLegend`, with 3M/6M/12M toggle. Accessors (`x`, `yExpenses`, `yAssets`) are module-level constants on purpose — Unovis re-renders badly if accessors are new closures each render. Follow this pattern for new Unovis charts. |
+
+#### `dashboard/expenses/`
+
+- `page.tsx` — `"use client"`, holds `expenses`/`categories` state, `refreshData()` re-fetches both in
+  parallel after every mutation. Also renders a **"Query Serializer Test Bench"** dev panel that fires a
+  hardcoded query at `expenseApi()`.
+- `actions.tsx` — `"use server"`: `addExpense`, `updateExpense`, `getUserExpenses` (flattens
+  `category` relation and converts `Decimal → number` via `.toNumber()`), `expenseApi(query)` (uses
+  `QuerySerializer`).
+- `ExpenseTable.tsx` — inline per-cell editing (`title`/`amount`/`category`/`date`) with draft +
+  dirty-field tracking, submit via an `IconSend` action icon.
+- `NewExpenseForm.tsx` — modal form for creating an expense.
+- `categories/actions.tsx` — `addCategory`, `updateExpenseCategory`, `getCategoryById`,
+  `getCategoryByTitle`, `getUserExpenseCategories`. Handles Prisma `P2002` (dup title) explicitly.
+- `categories/ExpenseCategoryForm.tsx` — exported as `CategoryManager`; add + edit categories via Mantine `useForm`.
+
+#### `dashboard/worth/` (assets / net worth)
+
+Mirrors `expenses/` almost 1:1 — `page.tsx`, `actions.tsx` (`addAsset`, `updateAsset`,
+`getUserAssets`, `assetApi`), `AssetTable.tsx`, `NewAssetForm.tsx`, `categories/actions.tsx`
+(`addAssetCategory`, `updateAssetCategory`, …), `categories/AssetCategoryForm.tsx`.
+
+Asset-specific: `isCash` boolean (rendered as a `Switch`/`Badge`), and `NewAssetForm` has an
+"also add to expenses" toggle that lazily loads expense categories and calls `addExpense` from the
+expenses module — the one cross-module dependency between the two features.
+
+### `components/` (root-level, `@/components/*`)
+
+| File                  | Role                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `DashboardShell.tsx`  | Mantine `AppShell` (header 60px, navbar 175px, `md` breakpoint) + framer-motion `AnimatePresence` keyed on pathname. |
+| `DashboardNavbar.tsx` | Nav links: Dashboard, Expenses, Worth, Charts, Settings. Active state via `data-active`. Shows app version from `package.json`. |
+| `LoggedInHeader.tsx`  | Title + session email/name + logout + theme toggle.                                                          |
+| `IndexHeader.tsx`     | Public header with Log in / Sign up buttons (`showLogin`/`showSignup` props).                                 |
+| `ThemeToggler.tsx`    | Mantine color-scheme toggle; returns `null` before mount to avoid hydration mismatch.                         |
+
+### `css/` (root-level, `@/css/*`)
+
+`NavbarSimple.module.css`, `TableSort.module.css`, `GradientSegmentedControl.module.css` — Mantine
+recipe styles using `light-dark(var(--mantine-color-…))`.
+
+---
+
+## Conventions an agent must follow
+
+1. **Data access is server actions only.** Files start with `"use server"`; the only API route is
+   NextAuth's catch-all. Don't add REST routes without a reason.
+2. **Every server action starts with `const userId = await getUserId();`** and `redirect("/auth/login")`
+   if null. Every Prisma query is scoped by `userId` — this is the only tenancy boundary. Never write a
+   query that can read another user's rows.
+3. **Return `ActionResult`** (`{ok:true} | {ok:false, error}`) from mutations. Read actions return domain
+   arrays directly and throw/redirect on failure. (`expenses/categories/actions.tsx#addCategory` is the
+   one legacy exception — it returns `{ok:false, message}`.)
+4. **`Decimal` never crosses to the client.** Convert with `.toNumber()` in the action before returning.
+5. **Prisma client import is `import { dbClient } from "@/lib/prisma"`.**
+6. **Client pages own their data.** Expenses/Worth pages are `"use client"` with a `refreshData()`
+   callback re-run after every mutation; the dashboard page is a server component that fetches in
+   `Promise.all`.
+7. **Mantine first for UI.** New charts should use **Unovis** (`ExpenseIncomeChart` is the reference);
+   existing `@mantine/charts` donut/bar widgets stay until migrated.
+8. **Anything using `react-grid-layout` must be dynamically imported with `ssr: false`.**
+9. Formatting is Prettier (120 cols, double quotes, semicolons). Run `npm run prettier` before finishing.
+
+## Fast lookup — "where do I go for…"
+
+| Task                                | File                                                       |
+| ----------------------------------- | ---------------------------------------------------------- |
+| Add a DB field                      | `prisma/schema.prisma` → `npx prisma migrate dev` → `types/` |
+| Change auth / roles / session shape | `src/lib/auth.ts`, `types/next-auth.d.ts`                  |
+| New dashboard widget                | `src/app/dashboard/_widgets/`, register in `DEFAULT_LAYOUT` in `DashboardGrid.tsx` |
+| New aggregation / chart data        | `src/app/dashboard/summary-db.ts`                          |
+| Filtering / pagination / sorting    | `src/lib/query-builder.ts` + `QueryInputSchema` in `src/lib/schemas.ts` |
+| Add a nav item                      | `components/DashboardNavbar.tsx` (`data` array)            |
+| Validation rules                    | `src/lib/schemas.ts`, `src/lib/validators.ts`              |
+| Expense CRUD                        | `src/app/dashboard/expenses/actions.tsx`                   |
+| Asset CRUD                          | `src/app/dashboard/worth/actions.tsx`                      |
+
+## Known blockers
+
+The repo **does not currently typecheck or build**. Read `OVERVIEW.md` § Known Issues before writing
+code — the top entry (`src/lib/query-builder.ts` missing a closing brace) breaks everything downstream.
+Check `CURRENT.md` for what's actively being worked on and for known minor bugs and gotchas.
