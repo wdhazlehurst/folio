@@ -37,7 +37,7 @@ export function DashboardNavbar() {
           );
         })}
       </div>
-      <Group className={classes.header} justify="space-between">
+      <Group className={classes.footer} justify="space-between">
         <Code fw={700}>v{appVersion}</Code>
       </Group>
     </nav>

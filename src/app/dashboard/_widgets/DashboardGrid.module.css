@@ -1,1 +1,57 @@
-/* intentionally empty */
+.widget {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+}
+
+/* Rearrange mode: dashed outline signals the tile is now movable. */
+.widgetRearranging {
+  border: 1.5px dashed var(--mantine-color-default-border);
+}
+
+.widgetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.widgetTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Only the title area is the drag handle, so header controls stay clickable. */
+.widgetTitleGroup:global(.drag-handle) {
+  cursor: grab;
+}
+
+.widgetTitleGroup:global(.drag-handle):active {
+  cursor: grabbing;
+}
+
+.widgetBody {
+  flex: 1;
+  min-height: 0;
+}
+
+.widgetEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Reserves space while the grid width is being measured, so nothing jumps. */
+.gridShell {
+  min-height: 720px;
+}
+
+.gripIcon {
+  color: var(--mantine-color-dimmed);
+  flex-shrink: 0;
+}

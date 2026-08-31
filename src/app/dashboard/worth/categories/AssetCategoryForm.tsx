@@ -56,8 +56,16 @@ export default function AssetCategoryForm({ categories = [], onUpdate }: AssetCa
     <Stack gap="lg">
       <Title order={2}>Asset Categories</Title>
 
-      {message && <Alert color="green">{message}</Alert>}
-      {error && <Alert color="red">{error}</Alert>}
+      {message && (
+        <Alert color="green" withCloseButton onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
+      {error && (
+        <Alert color="red" withCloseButton onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Modal
         opened={modalOpened}
@@ -67,23 +75,24 @@ export default function AssetCategoryForm({ categories = [], onUpdate }: AssetCa
         overlayProps={{ backgroundOpacity: 0.45, blur: 1 }}
       >
         <form onSubmit={form.onSubmit(handleAdd)}>
-          <TextInput
-            label="Title"
-            placeholder="E.g., Real Estate"
-            size="md"
-            data-autofocus
-            {...form.getInputProps("title")}
-          />
-          <TextInput
-            label="Description"
-            placeholder="E.g., Property holdings"
-            size="md"
-            mt="xs"
-            {...form.getInputProps("description")}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button type="submit">Create</Button>
-          </Group>
+          <Stack gap="sm">
+            <TextInput
+              label="Title"
+              placeholder="E.g., Real Estate"
+              size="md"
+              data-autofocus
+              {...form.getInputProps("title")}
+            />
+            <TextInput
+              label="Description"
+              placeholder="E.g., Property holdings"
+              size="md"
+              {...form.getInputProps("description")}
+            />
+            <Group justify="flex-end" mt="xs">
+              <Button type="submit">Create</Button>
+            </Group>
+          </Stack>
         </form>
       </Modal>
 
@@ -119,7 +128,7 @@ export default function AssetCategoryForm({ categories = [], onUpdate }: AssetCa
                       <Button type="submit" size="xs">
                         Save
                       </Button>
-                      <Button variant="light" color="gray" size="xs" onClick={() => setSelected(null)}>
+                      <Button type="button" variant="light" color="gray" size="xs" onClick={() => setSelected(null)}>
                         Close
                       </Button>
                     </Group>

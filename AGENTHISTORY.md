@@ -107,3 +107,68 @@ No source files were modified.
 - Open questions in `OVERVIEW.md` § 7 (fate of the generic query layer; whether assets are snapshots or
   balances) need a human decision before the query layer or the net-worth chart can be finished
   correctly.
+
+---
+
+## 2026-08-31 — Dev environment restore on CachyOS, root-route diagnosis, doc restructure
+
+**Agent:** Claude Opus 5 (Claude Code) · **Branch:** `feature/dashboard-integeration` · **Commits:** none
+
+**Task:** Get the project running again after ~4 months idle on a new machine (Windows → CachyOS);
+diagnose why the browser showed nothing at `localhost:3000`; restructure the agent docs.
+
+**Changed:**
+
+- `.env` — **created** (repo root, gitignored, `chmod 600`): `DATABASE_URL`, `NEXTAUTH_URL`,
+  `NEXTAUTH_SECRET` from `openssl rand -base64 32`. The only non-doc file touched all session.
+- `CURRENT.md` — **new.** Current task / Long term goals / Known minor bugs / Old tasks archive.
+- `INDEX.md` — added **Rules for agents** at the top; "three docs" → "four docs"; documented the
+  `CURRENT.md` vs `OVERVIEW.md` split; added guidance to read only the leading sections of each doc.
+- `AGENTHISTORY.md` — rewrote "How to use this file" to match the new prompted-update policy.
+- **No source files were modified.**
+
+**Learned:**
+
+- `next-auth` v5 reads `AUTH_SECRET` first and falls back to `NEXTAUTH_SECRET`
+  (`node_modules/next-auth/lib/env.js:22`). `NEXTAUTH_SECRET` is correct here and matches
+  `docker-entrypoint.sh`.
+- `next dev` binds `*:3000` — both stacks. `localhost`, `127.0.0.1`, and `[::1]` all return 200.
+- CachyOS/Arch ships the Docker CLI without the Compose plugin: `sudo pacman -S docker-compose`. The
+  daemon also starts inactive+disabled, and the `docker` group exists but is empty.
+- `docker compose` only starts Postgres. The app runs on the host via `npm run dev`; the `Dockerfile`
+  is unused in local dev.
+- Expenses require an existing category — `addExpense` rejects otherwise. Create a category first.
+
+**Traps / dead ends:**
+
+- **The root page's HTML contains `404: This page could not be found.` three times, and it is a red
+  herring.** It lives only inside `<script>self.__next_f.push(...)` — the RSC flight payload where
+  Next 15 ships its default not-found boundary. Stripping `<script>` tags leaves 4,105 bytes of DOM out
+  of 19,875, containing only the landing page. Never grep raw page source for "404" and conclude the
+  route failed.
+- Reading code to explain "browser shows nothing" was the wrong instinct. The decisive signal was the
+  **absence** of any `GET /` line in the dev server log: requests are logged, so no line means the
+  request never arrived, which localizes the fault to the browser in one step.
+- Chased an IPv6-vs-IPv4 loopback theory. **Ruled out** — the server binds both.
+
+**Verified:**
+
+- `folio-db-1` healthy on 5432; `prisma generate` + `migrate deploy` applied all 6 migrations to
+  `folio_dev`.
+- `curl`: 200 on all three loopback addresses, identical 19,875-byte body; dev log confirmed
+  `GET / 200`. Headers show `X-Powered-By: Next.js`, chunked, `no-store`.
+- Ruled out as causes of the reported "not found": no `middleware.*` anywhere, `next.config.ts` empty
+  (no `basePath`/rewrites/redirects), no route groups, no `not-found.tsx`/`error.tsx`, no `pages/` dir.
+  `src/app/page.tsx` exports a valid component.
+- **Not verified:** I never exercised the app in a browser, entered data, or completed a build —
+  B1 is still unfixed, so `npm run build` and a full `tsc --noEmit` would still fail.
+
+**Left undone:**
+
+- **B1 unfixed** — `src/lib/query-builder.ts` missing a closing brace. `/dashboard/expenses` and
+  `/dashboard/worth` won't compile, which blocks all data entry. Now listed at the top of
+  `CURRENT.md` § Known minor bugs as well as `OVERVIEW.md` § 5.
+- All other `OVERVIEW.md` § 5 issues remain open; no code was fixed.
+- Long term goals in `CURRENT.md` are still inferred, not owner-confirmed.
+- The Zen browser issue was resolved by the user; the cause was deliberately not recorded, at their
+  request. If it recurs on another machine, it will need re-diagnosing from scratch.

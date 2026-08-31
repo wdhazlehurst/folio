@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ScrollArea, Table, Text, TextInput, Select, ActionIcon } from "@mantine/core";
 import { IconSend } from "@tabler/icons-react";
 import { DatePickerInput } from "@mantine/dates";
+import { DIRTY_COLOR } from "@/app/dashboard/_widgets/chart-colors";
 import { Expense, ExpenseCategory } from "@/types/expense";
 
 type EditableField = "title" | "amount" | "category" | "date";
@@ -15,7 +16,6 @@ interface EditingCell {
 
 const inputProps = {
   size: "xs" as const,
-  autoFocus: true,
   w: "100%",
 };
 
@@ -25,11 +25,161 @@ interface ExpenseTableProps {
   onUpdateExpense: (expense: Expense) => Promise<void>;
 }
 
+interface EditableCellProps {
+  rowId: string;
+  field: EditableField;
+  value: string;
+  isEditing: boolean;
+  isDirty: boolean;
+  draft: Expense | null;
+  draftAmount: string;
+  categories: ExpenseCategory[];
+  categoryOptions: { value: string; label: string }[];
+  onStartEdit: (rowId: string, field: EditableField) => void;
+  onStopEditing: () => void;
+  onDraftChange: <K extends keyof Expense>(key: K, value: Expense[K]) => void;
+  onDraftAmountChange: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}
+
+/**
+ * Module scope on purpose: declaring this inside `ExpenseTable` made it a new
+ * component type on every render, so the input unmounted and remounted on each
+ * keystroke and lost the caret.
+ */
+function EditableCell({
+  rowId,
+  field,
+  value,
+  isEditing,
+  isDirty,
+  draft,
+  draftAmount,
+  categories,
+  categoryOptions,
+  onStartEdit,
+  onStopEditing,
+  onDraftChange,
+  onDraftAmountChange,
+  onCommit,
+  onCancel,
+}: EditableCellProps) {
+  const isRowEditing = draft?.id === rowId;
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onCommit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  }
+
+  if (isEditing) {
+    if (field === "title") {
+      return (
+        <TextInput
+          {...inputProps}
+          autoFocus
+          value={draft?.title ?? ""}
+          onChange={(e) => onDraftChange("title", e.currentTarget.value)}
+          onKeyDown={handleKeyDown}
+        />
+      );
+    }
+    if (field === "category") {
+      return (
+        <Select
+          {...inputProps}
+          autoFocus
+          data={categoryOptions}
+          value={draft?.categoryId ?? null}
+          onChange={(categoryId) => {
+            if (categoryId) onDraftChange("categoryId", categoryId);
+          }}
+          onBlur={onStopEditing}
+          clearable
+        />
+      );
+    }
+
+    if (field === "date") {
+      return (
+        <DatePickerInput
+          value={draft?.date ? new Date(draft.date) : null}
+          onBlur={onStopEditing}
+          onChange={(d) => {
+            if (d) onDraftChange("date", new Date(d));
+          }}
+        />
+      );
+    }
+
+    /** Expense amount */
+    return (
+      <TextInput
+        {...inputProps}
+        autoFocus
+        value={draftAmount}
+        onKeyDown={handleKeyDown}
+        onChange={(e) => {
+          const value = e.currentTarget.value;
+
+          // Allow digits and optional decimal with up to 2 places
+          if (/^\d*\.?\d{0,2}$/.test(value)) {
+            onDraftAmountChange(value);
+
+            // Only update draft if it's a valid number
+            const parsed = parseFloat(value);
+            if (!isNaN(parsed)) {
+              onDraftChange("amount", parsed);
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  let displayValue = value;
+  if (isRowEditing && draft) {
+    switch (field) {
+      case "title":
+        displayValue = draft.title;
+        break;
+      case "amount":
+        displayValue = draft.amount.toFixed(2);
+        break;
+      case "category": {
+        const draftCategory = categories.find((c) => c.id === draft.categoryId);
+        displayValue = draftCategory?.title ?? "";
+        break;
+      }
+      case "date":
+        displayValue = draft.date ? new Date(draft.date).toISOString().split("T")[0] : "";
+        break;
+    }
+  }
+
+  return (
+    <Text
+      size="sm"
+      style={{ cursor: "pointer", fontWeight: isDirty ? 600 : undefined }}
+      onClick={() => onStartEdit(rowId, field)}
+    >
+      {displayValue}
+      {isDirty && <span style={{ marginLeft: 6, color: DIRTY_COLOR, fontSize: 12 }}>•</span>}
+    </Text>
+  );
+}
+
 export default function ExpenseTable({ expenses, categories, onUpdateExpense }: ExpenseTableProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [originalExpense, setOriginalExpense] = useState<Expense | null>(null); // Original expense
   const [draftExpense, setDraftExpense] = useState<Expense | null>(null); // Updated expense before submitting
   const [draftAmount, setDraftAmount] = useState<string>(""); // Amount field for draft expense
+  const [submitting, setSubmitting] = useState(false);
 
   function beginExpenseEdit(expense: Expense) {
     setOriginalExpense(expense);
@@ -48,6 +198,21 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
 
   function isEditingRow(rowId: string) {
     return draftExpense?.id === rowId;
+  }
+
+  function handleStartEdit(rowId: string, field: EditableField) {
+    if (!isEditingRow(rowId)) {
+      const expense = expenses.find((e) => e.id === rowId);
+      if (expense) beginExpenseEdit(expense);
+    }
+    setEditingCell({ rowId, field });
+  }
+
+  /** Abandon the row entirely — Escape, or the Cancel path. */
+  function handleCancel() {
+    setDraftExpense(null);
+    setOriginalExpense(null);
+    setEditingCell(null);
   }
 
   /** Check if a row's field has been edited but not submitted */
@@ -83,180 +248,81 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
 
     if (!isDirty) return;
 
-    await onUpdateExpense(draftExpense);
+    setSubmitting(true);
+    try {
+      await onUpdateExpense(draftExpense);
+    } finally {
+      setSubmitting(false);
+    }
 
     setDraftExpense(null);
     setEditingCell(null);
     setOriginalExpense(null);
   }
 
-  function EditableCell({
-    rowId,
-    field,
-    value,
-    onCommit,
-    categoryObj,
-  }: {
-    rowId: string;
-    field: EditableField;
-    value: string;
-    onCommit: (value: string | ExpenseCategory) => void;
-    categoryObj?: ExpenseCategory;
-  }) {
-    const isEditing = editingCell?.rowId === rowId && editingCell.field === field;
-
-    if (isEditing) {
-      if (field === "title") {
-        return (
-          <TextInput
-            {...inputProps}
-            value={draftExpense?.title.toString() ?? ""}
-            onChange={(e) => updateDraftExpense("title", e.currentTarget.value)}
-          />
-        );
-      }
-      if (field === "category") {
-        return (
-          <Select
-            {...inputProps}
-            data={categoryOptions}
-            value={draftExpense?.categoryId ?? null}
-            onChange={(categoryId) => {
-              if (categoryId) updateDraftExpense("categoryId", categoryId);
-            }}
-            onBlur={() => setEditingCell(null)}
-            clearable
-          />
-        );
-      }
-
-      if (field === "date") {
-        return (
-          <DatePickerInput
-            value={draftExpense?.date ? new Date(draftExpense?.date) : null}
-            onBlur={() => setEditingCell(null)}
-            onChange={(d) => {
-              if (d) updateDraftExpense("date", new Date(d));
-            }}
-          />
-        );
-      }
-
-      /** Expense amount */
-      return (
-        <TextInput
-          {...inputProps}
-          value={draftAmount}
-          onChange={(e) => {
-            const value = e.currentTarget.value;
-
-            // Allow digits and optional decimal with up to 2 places
-            if (/^\d*\.?\d{0,2}$/.test(value)) {
-              setDraftAmount(value);
-
-              // Only update draft if it's a valid number
-              const parsed = parseFloat(value);
-              if (!isNaN(parsed)) {
-                updateDraftExpense("amount", parsed);
-              }
-            }
-          }}
-        />
-      );
-    }
-
-    const original = expenses.find((e) => e.id === rowId);
-    const isRowEditing = draftExpense?.id === rowId;
-
-    let displayValue = value;
-    if (isRowEditing && draftExpense) {
-      switch (field) {
-        case "title":
-          displayValue = draftExpense.title;
-          break;
-        case "amount":
-          displayValue = draftExpense.amount.toFixed(2);
-          break;
-        case "category":
-          const draftCategory = categories.find((c) => c.id === draftExpense?.categoryId);
-          displayValue = draftCategory?.title ?? "";
-          break;
-        case "date":
-          displayValue = draftExpense.date ? new Date(draftExpense.date).toISOString().split("T")[0] : "";
-          break;
-      }
-    }
-    return (
-      <Text
-        size="sm"
-        style={{
-          cursor: "pointer",
-          fontWeight: original && isFieldDirty(rowId, field) ? 600 : undefined,
-        }}
-        onClick={() => {
-          if (!isEditingRow(rowId)) {
-            const expense = expenses.find((e) => e.id === rowId);
-            if (expense) beginExpenseEdit(expense);
-          }
-          setEditingCell({ rowId, field });
-        }}
-      >
-        {displayValue}
-        {isFieldDirty(rowId, field) && (
-          <span
-            style={{
-              marginLeft: 6,
-              color: "#f08c00",
-              fontSize: 12,
-            }}
-          >
-            •
-          </span>
-        )}
-      </Text>
-    );
-  }
-
   const rows = expenses.map((row) => {
-    const categoryObj = categories.find((c) => c.id === row.categoryId);
+    const cellProps = {
+      isEditing: false,
+      draft: draftExpense,
+      draftAmount,
+      categories,
+      categoryOptions,
+      onStartEdit: handleStartEdit,
+      onStopEditing: () => setEditingCell(null),
+      onDraftChange: updateDraftExpense,
+      onDraftAmountChange: setDraftAmount,
+      onCommit: handleSubmit,
+      onCancel: handleCancel,
+    };
+
+    const isCellEditing = (field: EditableField) =>
+      editingCell !== null && editingCell.rowId === row.id && editingCell.field === field;
+
     return (
       <Table.Tr key={row.id}>
         <Table.Td>
           <EditableCell
+            {...cellProps}
             rowId={row.id!}
             field="title"
             value={row.title}
-            onCommit={(v) => console.log("Save title:", v)}
+            isEditing={isCellEditing("title")}
+            isDirty={isFieldDirty(row.id!, "title")}
           />
         </Table.Td>
         <Table.Td>
           <EditableCell
+            {...cellProps}
             rowId={row.id!}
             field="amount"
             value={row.amount.toFixed(2)}
-            onCommit={(v) => console.log("Save amount:", v)}
+            isEditing={isCellEditing("amount")}
+            isDirty={isFieldDirty(row.id!, "amount")}
           />
         </Table.Td>
         <Table.Td>
           <EditableCell
+            {...cellProps}
             rowId={row.id!}
             field="category"
-            value={categoryObj?.title ?? ""}
-            categoryObj={categoryObj}
-            onCommit={(v) => console.log("Save category:", v)}
+            value={categories.find((c) => c.id === row.categoryId)?.title ?? ""}
+            isEditing={isCellEditing("category")}
+            isDirty={isFieldDirty(row.id!, "category")}
           />
         </Table.Td>
         <Table.Td>
           <EditableCell
+            {...cellProps}
             rowId={row.id!}
             field="date"
             value={row.date instanceof Date ? row.date.toISOString().split("T")[0] : row.date}
-            onCommit={(v) => console.log("Save date:", v)}
+            isEditing={isCellEditing("date")}
+            isDirty={isFieldDirty(row.id!, "date")}
           />
         </Table.Td>
         <Table.Td align="right">
           {isEditingRow(row.id!) && (
-            <ActionIcon variant="outline" aria-label="Submit" onClick={handleSubmit}>
+            <ActionIcon variant="outline" aria-label="Submit" loading={submitting} onClick={handleSubmit}>
               <IconSend />
             </ActionIcon>
           )}
@@ -282,7 +348,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
             rows
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={4} style={{ textAlign: "center" }}>
+              <Table.Td colSpan={5} style={{ textAlign: "center" }}>
                 Nothing found
               </Table.Td>
             </Table.Tr>

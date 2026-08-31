@@ -26,13 +26,17 @@ Follow these on every task in this repo.
      effort; a fact learned by opening one file does not qualify.
 
    If you think something clears this bar but you're unsure, ask rather than writing unprompted.
+6. **Never touch `CURRENT.md` § Current task unless explicitly told to.** That section defines what the
+   user is working on — it's theirs to set, not yours to infer. If you think something belongs there
+   (the task has shifted, or work you did warrants adding to it), **ask**; don't write it. This holds
+   even under rule 5: those exceptions cover the bug lists and `AGENTHISTORY.md`, never Current task.
 
 ## The four docs
 
 | File               | Purpose                                                                                      | Who writes it                                                            |
 | ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `INDEX.md`         | Static map of the codebase: what every file is, conventions, commands, data model.             | Update when files are added/moved/deleted or a convention changes.        |
-| `CURRENT.md`       | The task at hand right now, long term goals, and known minor bugs. Fast-moving.                 | Update when the task changes, or when a small bug is found or squashed.   |
+| `CURRENT.md`       | The task at hand right now, long term goals, known minor bugs, then an Old tasks archive.       | Update when the task changes, or when a small bug is found or squashed.   |
 | `OVERVIEW.md`      | Full project state: goals, roadmap, status by area, and all known issues incl. blocking ones.   | Update when you fix a bug, finish a task, or discover a new one.          |
 | `AGENTHISTORY.md`  | Append-only log. Each agent records what it did, what it learned, and traps it hit.             | Append a dated entry only for significant sessions. Never rewrite history.|
 
@@ -44,6 +48,12 @@ and blocking/security issues. Minor bugs live in `CURRENT.md`; blockers live in 
 Workflow for a new agent: read `INDEX.md` → read `CURRENT.md` (what's active) → read `OVERVIEW.md`
 (full state/bugs) → skim the last few entries of `AGENTHISTORY.md` → work → update the relevant docs
 per the rules above.
+
+**Read only the leading sections of each doc unless something deeper is relevant to your task.** In
+`CURRENT.md` that means Current task, Long term goals, and Known minor bugs — its trailing **Old tasks**
+archive is for reference only, so skip it unless it bears on what you were asked to do. Likewise, skim
+only the most recent `AGENTHISTORY.md` entries rather than the whole log. This is deliberate: these docs
+grow, and reading all of them end-to-end every session wastes tokens.
 
 ---
 

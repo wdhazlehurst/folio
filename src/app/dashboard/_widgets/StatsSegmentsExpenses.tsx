@@ -1,19 +1,17 @@
 "use client";
 
 // app/dashboard/_widgets/StatsSegmentsExpenses.tsx
-"use client";
 
-import { Box, Group, Paper, Progress, SimpleGrid, Text, ThemeIcon } from "@mantine/core";
+import { Box, Group, Progress, SimpleGrid, Text } from "@mantine/core";
 import classes from "./StatsSegmentsExpenses.module.css";
-import { IconDeviceAnalytics, IconArrowUpRight, IconArrowDownRight } from "@tabler/icons-react";
+import { IconArrowUpRight, IconArrowDownRight } from "@tabler/icons-react";
+import { sliceColorName } from "./chart-colors";
 
 type Segment = {
   label: string; // category name
   value: number; // category amount
   percent: number; // percent
 };
-
-const COLORS = ["teal", "grape", "blue", "orange", "gray"]; // 5th = Others
 
 const fmtMoney = new Intl.NumberFormat(undefined, {
   style: "currency",
@@ -25,7 +23,7 @@ export default function StatsSegmentsExpenses({
   total,
   segments,
   deltaPct,
-  title = "This Month's Expenses",
+  title = "Total spent",
   subtitle = "Percent by Category",
 }: {
   total: number;
@@ -37,7 +35,7 @@ export default function StatsSegmentsExpenses({
   // Build progress sections from your percentages
   const progressSections = segments.map((s, i) => ({
     value: Math.max(0, Math.min(100, Number(s.percent.toFixed(2)))),
-    color: COLORS[i % COLORS.length],
+    color: sliceColorName(i, s.label),
     key: `${s.label}-${i}`,
   }));
 
@@ -45,7 +43,7 @@ export default function StatsSegmentsExpenses({
   const descriptions = segments.map((s, i) => (
     <Box
       key={s.label}
-      style={{ borderBottomColor: `var(--mantine-color-${COLORS[i % COLORS.length]}-6)` }}
+      style={{ borderBottomColor: `var(--mantine-color-${sliceColorName(i, s.label)}-6)` }}
       className={classes.stat}
     >
       <Text tt="uppercase" fz="xs" c="dimmed" fw={700}>
@@ -53,7 +51,7 @@ export default function StatsSegmentsExpenses({
       </Text>
       <Group justify="space-between" align="flex-end" gap={0}>
         <Text fw={700}>{fmtMoney.format(s.value)}</Text>
-        <Text c={COLORS[i % COLORS.length]} fw={700} fz="sm" className={classes.statCount}>
+        <Text c={sliceColorName(i, s.label)} fw={700} fz="sm" className={classes.statCount}>
           {s.percent.toFixed(1)}%
         </Text>
       </Group>
@@ -75,7 +73,7 @@ export default function StatsSegmentsExpenses({
     );
 
   return (
-    <Paper p="md" radius="md" h="100%">
+    <Box h="100%">
       <Group justify="space-between" mb="xs">
         <Group align="flex-end" gap="xs">
           <div>
@@ -94,17 +92,25 @@ export default function StatsSegmentsExpenses({
         {subtitle}
       </Text>
 
-      <Progress.Root size={34} classNames={{ label: classes.progressLabel }} mt={30}>
-        {progressSections.map((sec, idx) => (
-          <Progress.Section key={sec.key} value={sec.value} color={sec.color}>
-            {sec.value > 10 && <Progress.Label>{segments[idx].percent.toFixed(0)}%</Progress.Label>}
-          </Progress.Section>
-        ))}
-      </Progress.Root>
+      {segments.length > 0 ? (
+        <>
+          <Progress.Root size={34} classNames={{ label: classes.progressLabel }} mt={30}>
+            {progressSections.map((sec, idx) => (
+              <Progress.Section key={sec.key} value={sec.value} color={sec.color}>
+                {sec.value > 10 && <Progress.Label>{segments[idx].percent.toFixed(0)}%</Progress.Label>}
+              </Progress.Section>
+            ))}
+          </Progress.Root>
 
-      <SimpleGrid cols={{ base: 1, xs: 3 }} mt="xl">
-        {descriptions}
-      </SimpleGrid>
-    </Paper>
+          <SimpleGrid cols={{ base: 1, xs: 3 }} mt="xl">
+            {descriptions}
+          </SimpleGrid>
+        </>
+      ) : (
+        <Text size="sm" c="dimmed" mt="xl">
+          No expenses recorded this month.
+        </Text>
+      )}
+    </Box>
   );
 }

@@ -12,7 +12,3 @@
   line-height: 1;
   margin-left: var(--mantine-spacing-xs);
 }
-
-.icon {
-  color: var(--mantine-color-dimmed);
-}

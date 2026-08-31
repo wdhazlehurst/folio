@@ -1,8 +1,11 @@
 # CURRENT.md — Task at Hand
 
 Fast-moving working doc. What's being worked on **right now**, where the project is headed, and small
-bugs not worth a full entry in `OVERVIEW.md`. Update this when the task changes or when a small bug is
-found or squashed.
+bugs not worth a full entry in `OVERVIEW.md`.
+
+**Read the first three sections** (Current task, Long term goals, Known minor bugs). **Old tasks** at
+the bottom is archive — skip it unless something there is directly relevant to what you've been asked
+to do.
 
 **Last updated:** 2026-08-31
 
@@ -10,34 +13,11 @@ found or squashed.
 
 ## Current task
 
-**Restoring the development environment on a new machine.** The project sat untouched for ~4 months and
-has moved from Windows to CachyOS (Arch-based). No prior data is being migrated — the database starts
-empty and will be populated by hand. No feature goal is set yet; the objective is simply to get the app
-running and usable again.
+*Nothing active.* No task is assigned — wait to be given one. Don't infer a task from the bug lists
+below; they're documented, not assigned.
 
-**Done:**
-
-- Docker installed and daemon enabled; `docker-compose` plugin added (`sudo pacman -S docker-compose`).
-- Postgres 18 container up and healthy (`folio-db-1`, port 5432).
-- `.env` created at repo root (gitignored, `chmod 600`) with `DATABASE_URL`, `NEXTAUTH_URL`,
-  and a freshly generated `NEXTAUTH_SECRET`.
-- `npx prisma generate` and `npx prisma migrate deploy` — all 6 migrations applied to `folio_dev`.
-- Dev server verified serving the landing page: **HTTP 200** on `localhost:3000`, `127.0.0.1:3000`,
-  and `[::1]:3000`, with correct DOM.
-
-**Blocked on:**
-
-- The browser (Zen) never reaches the dev server — the Next.js log records zero requests from it while
-  `curl` succeeds on every loopback address. The server is confirmed healthy, so the fault is
-  browser-side. Waiting to identify Zen's exact error text to pin the cause (DNS / HTTPS-only upgrade /
-  URL-bar search / proxy).
-
-**Next, once the browser reaches the app:**
-
-1. Fix the missing closing brace in `src/lib/query-builder.ts` — until then `/dashboard/expenses` and
-   `/dashboard/worth` will not compile, which is exactly where data gets entered. See `OVERVIEW.md` B1.
-2. Register an account, create expense and asset categories (expenses require an existing category).
-3. Enter real data and confirm the dashboard widgets populate.
+> **Agents: do not edit this section unless explicitly told to** (`INDEX.md` § Rules for agents, rule 6).
+> If you think it should change, ask first.
 
 ---
 
@@ -69,11 +49,13 @@ mobile app.
 
 ## Known minor bugs
 
-Small stuff — cosmetic, dead code, papercuts. **Blocking build breaks and the security issue live in
-`OVERVIEW.md` § 5** (B1–B3, B5); don't duplicate those here. IDs match `OVERVIEW.md` numbering.
+Mostly small stuff — cosmetic, dead code, papercuts — plus B1, which is listed here because it blocks
+data entry. The remaining build breaks and the security issue live in **`OVERVIEW.md` § 5** (B2, B3,
+B5). IDs match `OVERVIEW.md` numbering; full detail for each is there.
 
 | ID  | Bug                                                                                                            |
 | --- | ---------------------------------------------------------------------------------------------------------------- |
+| B1  | ⚠ **Blocking.** `src/lib/query-builder.ts` is missing the closing brace on the `QuerySerializer` class, so `/dashboard/expenses` and `/dashboard/worth` fail to compile. Those are the only pages where expenses and assets get entered, so the app can't be populated until this is fixed. One-character fix. |
 | B4  | `src/app/theme.ts` imports `@mui/material/styles`; MUI isn't installed and nothing imports the file. Dead — delete. |
 | B7  | `Expense.description` exists in the Zod type and `NewExpense` but not in the Prisma schema. Code carries a `// FIXME`. |
 | B8  | `dashboard/page.tsx` passes the same value as both `monthlyTrend` and `monthlyData`, so two widgets show the same series. The bar widget is titled "6-Month Spending Trend" but is fed 12 months. |
@@ -94,3 +76,31 @@ Small stuff — cosmetic, dead code, papercuts. **Blocking build breaks and the 
   landing page DOM. Viewing page source and finding "404" is misleading.
 - **A fresh clone reports ~20 `Module '"@prisma/client"' has no exported member` errors.** The generated
   client isn't committed. Run `npx prisma generate` first. These are not source bugs.
+
+---
+
+## Old tasks
+
+Archive of completed or parked work. **New agents don't need to read this section** unless something in
+it is directly relevant to the current task.
+
+### 2026-08-31 — Restoring the dev environment on CachyOS
+
+The project sat untouched for ~4 months and moved from Windows to CachyOS (Arch-based). No prior data
+was migrated — the database started empty and is populated by hand.
+
+**Done:**
+
+- Docker installed and daemon enabled; `docker-compose` plugin added (`sudo pacman -S docker-compose`).
+- Postgres 18 container up and healthy (`folio-db-1`, port 5432).
+- `.env` created at repo root (gitignored, `chmod 600`) with `DATABASE_URL`, `NEXTAUTH_URL`, and a
+  freshly generated `NEXTAUTH_SECRET`.
+- `npx prisma generate` and `npx prisma migrate deploy` — all 6 migrations applied to `folio_dev`.
+- Dev server verified serving the landing page: **HTTP 200** on `localhost:3000`, `127.0.0.1:3000`, and
+  `[::1]:3000`, with correct DOM.
+- Browser access resolved — the Zen browser now reaches the dev server. The server side was never at
+  fault; `curl` had succeeded on every loopback address throughout.
+
+The environment is fully restored. Remaining work to actually populate the app is tracked as B1 under
+Known minor bugs, then: register an account, create categories (expenses require an existing category),
+and enter data.

@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Stack, Button, Group, Text, Code } from "@mantine/core"; // Added Button and Group
+import { Stack, Button, Group, Text, Title, Alert, Skeleton } from "@mantine/core";
 import { addExpense, getUserExpenses, updateExpense, expenseApi } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
 import { Expense, ExpenseCategory } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
 import CategoryManager from "./categories/ExpenseCategoryForm";
-import NewExpenseForm from "./NewExpenseForm";
-import "@mantine/dates/styles.css";
+import NewExpenseForm, { type NewExpenseFormValues } from "./NewExpenseForm";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
 
   const refreshData = useCallback(async () => {
     try {
@@ -24,6 +24,8 @@ export default function ExpensesPage() {
     } catch (error) {
       setError("Failed to load data");
       console.error(error);
+    } finally {
+      setDataLoading(false);
     }
   }, []);
 
@@ -65,6 +67,7 @@ export default function ExpensesPage() {
   };
 
   const handleUpdateExpense = async (updatedExpense: Expense) => {
+    setError(null);
     const response = await updateExpense(updatedExpense);
     if (response && !response.ok) {
       setError(response.error);
@@ -73,17 +76,28 @@ export default function ExpensesPage() {
     await refreshData();
   };
 
-  const handleAddExpense = async (expenseData: any) => {
+  const handleAddExpense = async (expenseData: NewExpenseFormValues) => {
+    setError(null);
     const response = await addExpense(expenseData);
     if (response && !response.ok) {
       setError(response.error);
-      return;
+      return response;
     }
     await refreshData();
+    return response;
   };
 
   return (
     <Stack>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Expenses</Title>
+        <NewExpenseForm
+          categories={categories.map((c) => ({ value: c.id, label: c.title }))}
+          onSubmit={handleAddExpense}
+          onUpdate={refreshData}
+        />
+      </Group>
+
       {/* Test Section */}
       <Group justify="space-between" p="md" style={{ border: "1px dashed #228be6", borderRadius: "8px" }}>
         <Text size="sm" fw={500}>
@@ -95,18 +109,21 @@ export default function ExpensesPage() {
       </Group>
 
       {error && (
-        <Text color="red" size="sm" bg="red.0" p="xs">
-          <strong>Error:</strong> {error}
-        </Text>
+        <Alert color="red" withCloseButton onClose={() => setError(null)}>
+          {error}
+        </Alert>
       )}
 
-      <NewExpenseForm
-        categories={categories.map((c) => ({ value: c.id, label: c.title }))}
-        onSubmit={handleAddExpense}
-        onUpdate={refreshData}
-      />
-
-      <ExpenseTable expenses={expenses} categories={categories} onUpdateExpense={handleUpdateExpense} />
+      {dataLoading ? (
+        <Stack gap="xs">
+          <Skeleton height={32} />
+          <Skeleton height={28} />
+          <Skeleton height={28} />
+          <Skeleton height={28} />
+        </Stack>
+      ) : (
+        <ExpenseTable expenses={expenses} categories={categories} onUpdateExpense={handleUpdateExpense} />
+      )}
 
       <CategoryManager categories={categories} onUpdate={refreshData} />
     </Stack>

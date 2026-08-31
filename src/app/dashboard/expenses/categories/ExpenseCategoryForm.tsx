@@ -34,6 +34,7 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
     if (result.ok) {
       form.reset();
       setMessage("Category added successfully");
+      close();
       onUpdate();
     } else {
       setError(result.message);
@@ -62,8 +63,16 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
     <Stack gap="lg">
       <Title order={2}>Expense Categories</Title>
 
-      {message && <Alert color="green">{message}</Alert>}
-      {error && <Alert color="red">{error}</Alert>}
+      {message && (
+        <Alert color="green" withCloseButton onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
+      {error && (
+        <Alert color="red" withCloseButton onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Popup for creating new expense category*/}
       <Modal
@@ -77,33 +86,31 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
         }}
       >
         <form onSubmit={form.onSubmit(handleAdd)}>
-          <TextInput
-            label="Title"
-            placeholder="E.g., Groceries"
-            size="md"
-            data-autofocus
-            {...form.getInputProps("title")}
-          />
-          <TextInput
-            label="Description"
-            placeholder="E.g., Monthly food expenses"
-            size="md"
-            {...form.getInputProps("description")}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button type="submit" onClick={close}>
-              Create
-            </Button>
-          </Group>
+          <Stack gap="sm">
+            <TextInput
+              label="Title"
+              placeholder="E.g., Groceries"
+              size="md"
+              data-autofocus
+              {...form.getInputProps("title")}
+            />
+            <TextInput
+              label="Description"
+              placeholder="E.g., Monthly food expenses"
+              size="md"
+              {...form.getInputProps("description")}
+            />
+            <Group justify="flex-end" mt="xs">
+              {/* Closing happens in handleAdd on success, so a failed create keeps the error visible. */}
+              <Button type="submit">Create</Button>
+            </Group>
+          </Stack>
         </form>
       </Modal>
 
-      {/* Add Form */}
-      <form onSubmit={form.onSubmit(handleAdd)}>
-        <Button variant="default" onClick={open}>
-          New Category
-        </Button>
-      </form>
+      <Button variant="default" onClick={open}>
+        New Category
+      </Button>
 
       {/* Category List */}
       {categories.length === 0 ? (
@@ -137,7 +144,7 @@ export default function CategoryManager({ categories = [], onUpdate }: CategoryM
                       <Button type="submit" size="xs">
                         Save
                       </Button>
-                      <Button variant="light" color="gray" size="xs" onClick={() => setSelected(null)}>
+                      <Button type="button" variant="light" color="gray" size="xs" onClick={() => setSelected(null)}>
                         Close
                       </Button>
                     </Group>
