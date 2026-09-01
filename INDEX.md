@@ -88,7 +88,7 @@ npm run dev                   # Next dev server on :3000 (turbopack)
 npm run build                 # production build
 npm run lint                  # eslint (next/core-web-vitals + next/typescript)
 npm run prettier              # format (printWidth 120, semi, double quotes, es5 trailing comma)
-npx tsc --noEmit              # typecheck — see OVERVIEW.md, this currently FAILS
+npx tsc --noEmit              # typecheck — currently passes (0 errors)
 ```
 
 Env vars (no `.env` is committed — `.gitignore` excludes `.env*`):
@@ -128,9 +128,9 @@ live next to their component instead.
 ### `prisma/`
 
 - `schema.prisma` — datasource `postgresql`, generator `prisma-client-js`. Models below.
-- `migrations/` — 6 migrations, latest `20260428212808_add_assets`.
+- `migrations/` — 7 migrations, latest `20260901040344_phase0_decimal_money_and_expense_description`.
 
-**Data model** (all IDs are `uuid` strings; money is Postgres `MONEY` → Prisma `Decimal`; `date` is `@db.Date`):
+**Data model** (all IDs are `uuid` strings; money is `@db.Decimal(12, 2)` → Prisma `Decimal`; `date` is `@db.Date`):
 
 ```
 User            id, email(unique), password(bcrypt), role(Role enum: USER|ADMIN|MODERATOR)
@@ -138,11 +138,11 @@ User            id, email(unique), password(bcrypt), role(Role enum: USER|ADMIN|
 
 ExpenseCategory id, title(≤32), description?(≤128), userId, createdAt, updatedAt
                 @@unique([title, userId])  @@index([userId])
-Expense         id, title(≤32), amount(Decimal/Money), userId, categoryId?, date, createdAt, updatedAt
+Expense         id, title(≤32), description?(≤256), amount(Decimal 12,2), userId, categoryId?, date, ...
 
 AssetCategory   id, title(≤32), description?(≤128), userId, createdAt, updatedAt
                 @@unique([title, userId])  @@index([userId])
-Asset           id, title(≤32), amount(Decimal/Money), isCash(bool), userId, categoryId?, date, ...
+Asset           id, title(≤32), amount(Decimal 12,2), isCash(bool), userId, categoryId?, date, ...
 ```
 
 Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expense has **no**
@@ -152,7 +152,7 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 
 | File              | Contents                                                                                          |
 | ----------------- | -------------------------------------------------------------------------------------------------- |
-| `api.ts`          | `ActionResult` = `{ok:true} \| {ok:false,error}` — the standard server-action return. `ResultData<T>`, `FilterOps<T>`. |
+| `api.ts`          | `ActionResult` = `{ok:true} \| {ok:false,error}` — the standard server-action return. Also the **single** home for query types: `FilterOps<T>`, `QueryInput<T>`, `SortDirection`, `Pagination`, `PagedResult<T>`, plus `ResultData<T>`. |
 | `expense.ts`      | Zod `ExpenseSchema`/`ExpenseCategorySchema` + inferred types, plus `NewExpense`/`NewExpenseCategory` interfaces (client→server payloads). |
 | `asset.ts`        | Same shape for assets: `AssetSchema`, `AssetCategorySchema`, `NewAsset`, `NewAssetCategory`.        |
 | `next-auth.d.ts`  | Augments NextAuth `User`/`Session`/`JWT` with `id`, `email`, `role`.                                |
@@ -166,17 +166,19 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `prisma.ts`        | `export const dbClient: PrismaClient` — a bare `new PrismaClient()`. **Import name is `dbClient`, not `prisma`.**          |
 | `errors.ts`        | `UserInputError` — thrown by validators, caught in actions to surface a message to the user.                              |
 | `validators.ts`    | `validateEmail`, `validatePassword` — throw `UserInputError`.                                                             |
-| `schemas.ts`       | `emailSchema`, `passwordSchema` (6+ chars w/ complexity rules, or 16+ char passphrase), `registerSchema`, `QueryInputSchema` (`filters`/`sort`/`pagination`) + `QueryInput`, a second copy of `FilterOps<T>`. |
-| `query-builder.ts` | `QuerySerializer<T>` class — validates raw query input against `QueryInputSchema`, `transform()` returns a Prisma args object (`where`/`orderBy`/`take`/`skip`/`select`); `parseFilters` maps `contains/eq/in`, `min/max`→`gte/lte`, `before/after`→`lt/gt`. **Currently has a syntax error — see OVERVIEW.md.** |
+| `schemas.ts`       | `emailSchema`, `passwordSchema` (6+ chars w/ complexity rules, or 16+ char passphrase), `registerSchema`, `PaginationSchema`, a `.strict()` `FilterOpsSchema` (unknown operators rejected), and **`makeQueryInputSchema(allowedFields)`** — a factory binding a query schema to one model's field allowlist. |
+| `query-builder.ts` | `QuerySerializer<T, Field>` class — validates raw input against the model's allowlist, `transform()` returns Prisma args (`where`/`orderBy`/`take`/`skip`); `pageInfo` getter exposes the effective page/limit. `parseFilters` maps `contains/eq/in`, `min/max`→`gte/lte`, `before/after`→`lt/gt`. **`userId` is forced into `where` *after* the filter spread — that is the tenancy boundary; never move it.** |
+| `query-fields.ts`  | Per-model field allowlists (`EXPENSE_QUERY_FIELDS`, `ASSET_QUERY_FIELDS`, + both category models), typed `Extract<keyof T, string>` so a typo is a compile error. **A field is only queryable if listed here.** |
 | `zodMantine.ts`    | `zodValidate(schema)` → Mantine `useForm` `validate` function (first error per field).                                     |
 | `querys/query.ts`  | Empty file.                                                                                                              |
 | `querys/types.ts`  | Fully commented out. Both `querys/` files are abandoned scaffolding.                                                       |
 
 ### `src/services/`
 
-- `factory.service.ts` — `getModelData(modelDelegate, input, fixedWhere)`, a generic paginated
-  find+count helper meant to work with any Prisma delegate. **Currently broken** (imports symbols
-  that don't exist). Not functionally used.
+- `factory.service.ts` — `getModelData(modelDelegate, serializer, select?)`, a generic paginated
+  find+count helper returning `PagedResult<T>` (`{ data, meta }`). Tenancy comes from the serializer,
+  so there is no `fixedWhere` parameter to get wrong. Compiles and is correct, but **has no caller
+  yet** — staged for the Phase 1+ models.
 
 ### `src/constants.ts`
 
@@ -190,7 +192,6 @@ layout.tsx            Root layout → <Providers>
 providers.tsx         SessionProvider + MantineProvider (localStorage color scheme key "mantine-color-scheme")
 page.tsx              Public landing page ("Welcome to FinanceApp" copy — brand mismatch, app is "Folio")
 globals.css           Base resets + light/dark CSS vars
-theme.ts              DEAD — MUI createTheme; @mui is not installed and nothing imports this
 page.module.css       create-next-app leftover
 
 api/auth/[...nextauth]/route.ts    re-exports { GET, POST } from @/auth
@@ -295,7 +296,10 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 7. **Mantine first for UI.** New charts should use **Unovis** (`ExpenseIncomeChart` is the reference);
    existing `@mantine/charts` donut/bar widgets stay until migrated.
 8. **Anything using `react-grid-layout` must be dynamically imported with `ssr: false`.**
-9. Formatting is Prettier (120 cols, double quotes, semicolons). Run `npm run prettier` before finishing.
+9. **Every queryable model needs a field allowlist** in `src/lib/query-fields.ts`. `QuerySerializer`
+   rejects any `filters`/`sort` key not listed, so arbitrary field names never reach Prisma. Adding a
+   model without one means it can't be queried; widening one is a deliberate act.
+10. Formatting is Prettier (120 cols, double quotes, semicolons). Run `npm run prettier` before finishing.
 
 ## Fast lookup — "where do I go for…"
 
@@ -305,14 +309,18 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 | Change auth / roles / session shape | `src/lib/auth.ts`, `types/next-auth.d.ts`                  |
 | New dashboard widget                | `src/app/dashboard/_widgets/`, register in `DEFAULT_LAYOUT` in `DashboardGrid.tsx` |
 | New aggregation / chart data        | `src/app/dashboard/summary-db.ts`                          |
-| Filtering / pagination / sorting    | `src/lib/query-builder.ts` + `QueryInputSchema` in `src/lib/schemas.ts` |
+| Filtering / pagination / sorting    | `src/lib/query-builder.ts` + `makeQueryInputSchema` in `src/lib/schemas.ts`; add the field to `src/lib/query-fields.ts` |
 | Add a nav item                      | `components/DashboardNavbar.tsx` (`data` array)            |
 | Validation rules                    | `src/lib/schemas.ts`, `src/lib/validators.ts`              |
 | Expense CRUD                        | `src/app/dashboard/expenses/actions.tsx`                   |
 | Asset CRUD                          | `src/app/dashboard/worth/actions.tsx`                      |
 
-## Known blockers
+## Status
 
-The repo **does not currently typecheck or build**. Read `OVERVIEW.md` § Known Issues before writing
-code — the top entry (`src/lib/query-builder.ts` missing a closing brace) breaks everything downstream.
-Check `CURRENT.md` for what's actively being worked on and for known minor bugs and gotchas.
+The repo **typechecks and builds** as of 2026-09-01 (Phase 0). Run `npx prisma generate` before any
+typecheck or you'll see ~20 phantom `@prisma/client` errors that aren't real.
+
+Read `CURRENT.md` for what's actively being worked on, the settled design decisions, and known minor
+bugs and gotchas. `OVERVIEW.md` § 5 has the remaining issues — note **B5**, a real tenancy bug in
+`expenses/categories/actions.tsx#getCategoryById`, and **B17**, a silent wrong-results bug in
+`parseFilters`.

@@ -5,7 +5,7 @@ tick off tasks, add newly found bugs, move fixed items to Recently Resolved.
 
 For the file-by-file map, see `INDEX.md`. For per-session agent notes, see `AGENTHISTORY.md`.
 
-**Last updated:** 2026-08-26 · **Branch:** `feature/dashboard-integeration` · **Version:** 0.0.1
+**Last updated:** 2026-09-01 · **Branch:** `feature/phase0-groundwork` · **Version:** 0.0.1
 
 ---
 
@@ -19,14 +19,9 @@ no household/multi-user concept, and no external bank integration.
 
 ## 2. Goals
 
-> These are inferred from the code and commit history. **Confirm/replace with the real product goals.**
-
-**Product**
-
-- Fast, low-friction expense entry (inline table editing, modal quick-add) — largely working.
-- Net-worth tracking alongside spending, so a user sees both sides on one screen.
-- A dashboard the user can rearrange and (eventually) choose widgets for, persisted per user.
-- Light/dark theming throughout.
+> **The owner-confirmed product vision now lives in `CURRENT.md` § Long term goals** (Income, budget
+> allocation, Debts, Investments, Projections). That is the authoritative statement of direction —
+> this section keeps only the technical goals.
 
 **Technical**
 
@@ -37,23 +32,24 @@ no household/multi-user concept, and no external bank integration.
 - Migrate charting onto **Unovis**, using Mantine only for layout/primitives.
 - Deployable via Docker with migrations applied on boot.
 
-**Explicitly not in scope right now:** bank/API imports, budgets, recurring transactions, multi-currency,
-mobile app.
+**Explicitly not in scope right now:** bank/API imports, multi-currency, mobile app.
+(Budgets and recurring transactions were previously listed here; as of 2026-08-31 they are **core** to
+the product vision — see `CURRENT.md`.)
 
 ## 3. Current state
 
 | Area                          | Status                                                                                  |
 | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | Auth (register/login/session) | Working. Credentials + JWT, role field present but only `requireRole(["*"])` is used.     |
-| Expenses CRUD                 | Working (add, inline edit, list). No delete. No description field.                        |
+| Expenses CRUD                 | Working (add, inline edit, list, description). No delete.                                 |
 | Expense categories            | Working (add, edit). No delete.                                                           |
 | Assets / Worth page           | Working (add, inline edit, list, `isCash`). Newest feature — least exercised.             |
 | Asset categories              | Working (add, edit). No delete.                                                           |
 | Dashboard widgets             | Working: stats bar, category donut, spending bar chart, Unovis expense-vs-asset area chart. Layout persists in `localStorage`. |
 | Charts page (`/dashboard/charts`) | Stub — renders a title only.                                                          |
 | Settings page                 | UI only. Display name, password change, and delete account do nothing.                    |
-| Generic query API             | Half-built and broken. `QuerySerializer` exists; `factory.service.ts` doesn't compile.    |
-| Build / typecheck             | **Failing.** See § 5.                                                                     |
+| Generic query API             | **Working.** `QuerySerializer` + per-model field allowlists; `factory.service.ts` rebuilt but not yet called. |
+| Build / typecheck             | **Passing.** `tsc --noEmit` 0 errors, `npm run build` succeeds (Phase 0, 2026-09-01).      |
 | Tests                         | None. No test runner installed.                                                           |
 | CI                            | None.                                                                                     |
 
@@ -61,31 +57,28 @@ mobile app.
 
 Ordered roughly by priority. Check off and date items as they land.
 
-**P0 — unblock the build**
+**P0 — unblock the build** ✅ **done 2026-09-01 (Phase 0)**
 
-- [ ] Fix the syntax error in `src/lib/query-builder.ts` (missing closing `}` for the class) — nothing
-      typechecks until this is done.
-- [ ] Fix or delete `src/services/factory.service.ts`: it imports `transformToPrisma` (doesn't exist —
-      the module exports the `QuerySerializer` class) and `QueryInput` from `@/types/api` (it lives in
-      `src/lib/schemas.ts`). Decide whether the generic service layer stays.
-- [ ] Fix the unused/broken imports in `src/app/dashboard/expenses/actions.tsx`
-      (`QueryInput` from `@/types/api`, `PrismaClient`, `getModelData`).
-- [ ] Reconcile `react-grid-layout` v2 types in `DashboardGrid.tsx` — v2's `GridLayoutProps` has no
-      `cols`, and its `Layout` is `readonly`, so `setLayout(newLayout)` fails. Either pin to v1.x or
-      port to the v2 API.
-- [ ] Delete `src/app/theme.ts` (imports `@mui/material/styles`; MUI isn't installed and nothing
-      imports the file).
+- [x] Fix the syntax error in `src/lib/query-builder.ts` (B1).
+- [x] Fix `src/services/factory.service.ts` — rebuilt against the `QuerySerializer` class (B2).
+- [x] Fix the unused/broken imports in `src/app/dashboard/expenses/actions.tsx`.
+- [x] Reconcile `react-grid-layout` v2 in `DashboardGrid.tsx` — swapped to the `react-grid-layout/legacy`
+      v1-compatibility entry point (B3).
+- [x] Delete `src/app/theme.ts` (B4).
 
 **P1 — finish the query layer**
 
-- [ ] Add `select` to `QueryInputSchema` in `src/lib/schemas.ts`, or stop destructuring it in
-      `QuerySerializer.transform()` — currently `transform()` reads a field the schema strips.
-- [ ] De-duplicate `FilterOps<T>`, defined identically in `types/api.ts` and `src/lib/schemas.ts`
-      (the two copies already differ: `contains` is required in one, optional in the other).
-- [ ] Make `pagination` optional in `QueryInputSchema` (callers must currently always pass it).
+- [x] Resolve `select` — dropped from `transform()`; call sites supply their own.
+- [x] De-duplicate `FilterOps<T>` — `types/api.ts` is now the single definition.
+- [x] Make `pagination` optional.
+- [x] Drop the `console.log`s in `expenseApi`.
 - [ ] Remove the "Query Serializer Test Bench" dev panel from `src/app/dashboard/expenses/page.tsx`
-      once the API is trusted, and drop the `console.log`s in `expenseApi`.
+      once the API is trusted. It now has two buttons (valid query + blocked-field check).
 - [ ] Delete the abandoned `src/lib/querys/` folder (`query.ts` empty, `types.ts` fully commented out).
+      Still present.
+- [ ] Fix B17 (falsy `eq` values dropped) before Phase 1 filters on a boolean.
+- [ ] `getModelData<T>` takes `QuerySerializer<any, any>`, so its `T` is unconnected to the serializer's
+      and `data as T[]` is an unchecked assertion. Tighten when it gets its first caller.
 
 **P1 — features**
 
@@ -109,46 +102,20 @@ Ordered roughly by priority. Check off and date items as they land.
 
 ## 5. Known issues & bugs
 
-### Blocking
+Every blocking issue is resolved — the repo typechecks and builds. See § 6.
 
-**B1 — `src/lib/query-builder.ts` has a syntax error.**
-The `QuerySerializer` class is missing its closing brace. `npx tsc --noEmit` on a clean checkout
-reports exactly one error: `query-builder.ts(71,1): error TS1005: '}' expected.` The build cannot
-succeed. Fix this first.
-
-**B2 — `src/services/factory.service.ts` imports symbols that don't exist.**
-`transformToPrisma` from `@/lib/query-builder` and `QueryInput` from `@/types/api`. Both resolve to
-nothing. The file is in the build graph because `expenses/actions.tsx` imports `getModelData` from it
-(and then never calls it).
-
-**B3 — `react-grid-layout` v2 API mismatch in `DashboardGrid.tsx`.**
-Installed version is `^2.2.3`. Three separate type errors: `cols` is not a valid prop, and `onDragStop`
-/`onResizeStop` hand back a `readonly Layout` that can't be assigned to the mutable `LayoutItem[]`
-state. The code was written against the v1 API.
-
-### Non-blocking but real
-
-**B4 — `src/app/theme.ts` imports `@mui/material/styles`, which is not installed.** Dead file left over
-from an earlier MUI phase. Nothing imports it. Delete it.
+### Security
 
 **B5 — `getCategoryById` in `expenses/categories/actions.tsx` ignores `userId`.** It takes `userId` as a
 parameter but queries `findFirst({ where: { id } })` only. A user who supplies another user's category
 id can attach their expense to it. The asset version (`worth/categories/actions.tsx`) does this
-correctly with `where: { id, userId }`. **Fix the expense one to match.**
+correctly with `where: { id, userId }`. **Fix the expense one to match.** Still open as of 2026-09-01.
+
+### Non-blocking but real
 
 **B6 — `types/types.d.ts` conflicts with `types/next-auth.d.ts`.** Both augment NextAuth's `User`;
 `types.d.ts` declares `id: integer`, which isn't a TypeScript type. It goes unreported only because
 `skipLibCheck: true` skips declaration files. Delete `types/types.d.ts`.
-
-**B7 — `Expense.description` exists in the Zod type and `NewExpense`, but not in the Prisma schema.**
-`getUserExpenses` carries a `// FIXME need to add description/note`. Either add the column or drop it
-from the types.
-
-**B8 — Widget/data mismatches in the dashboard.**
-
-- `dashboard/page.tsx` passes `monthlyTrend` and `monthlyData` the same value (`getMonthlyTrend(12)`),
-  so the "Monthly Overview" chart's expense series and the bar chart are the same series.
-- The spending bar widget is titled "6-Month Spending Trend" but is fed 12 months.
 
 **B9 — `dashboard/DashboardLayout.tsx` is dead code.** It's a second server dashboard body superseded
 by `dashboard/page.tsx`, and its name collides confusingly with `dashboard/layout.tsx`. Delete it.
@@ -162,9 +129,6 @@ Unreachable today because only `requireRole(["*"])` is called.
 `postcss.config.mjs`.** The CSS modules only use native `light-dark()` today so nothing is broken, but
 Mantine mixins (`@mixin dark`, `rem()`) will silently not work until the config is added.
 
-**B13 — `StatsSegmentsExpenses.tsx` has a duplicated `"use client"` directive** (line 1 and line 4).
-Harmless; clean it up when touching the file.
-
 **B14 — `Dockerfile` has `RUN chmod +X` (capital X).** `+X` only sets execute on directories/
 already-executable files, so `docker-entrypoint.sh` may not be executable in the image. Should be `+x`.
 Also, the runtime stage copies the whole builder `/app` including dev dependencies.
@@ -173,7 +137,15 @@ Also, the runtime stage copies the whole builder `/app` including dev dependenci
 leaks connections across reloads. Use the standard `globalThis` cached-client pattern.
 
 **B16 — Reported dashboard crash.** Commit `dd7dc56` notes "crashed one time, don't know why exactly"
-in the draggable widget system. Unreproduced, root cause unknown — likely related to B3.
+in the draggable widget system. Unreproduced, root cause unknown.
+
+**B17 — `parseFilters` silently drops falsy `eq` values.** `src/lib/query-builder.ts:96` tests
+`else if (fieldOps.eq)`, so `eq: false` and `eq: 0` fail the truthiness check and no filter is applied —
+the query returns **every** row instead of the matching subset, with no error. Newly reachable because
+Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to `ASSET_QUERY_FIELDS`, so
+`assetApi({ filters: { isCash: { eq: false } } })` returns all assets. Fix: `fieldOps.eq !== undefined`;
+the `contains`/`in` branches deserve the same treatment. Nothing in the UI calls these APIs yet — only
+the dev test bench — but Phase 1 will.
 
 ### Environment note (not a code bug)
 
@@ -183,6 +155,37 @@ member 'PrismaClient' / 'Prisma'` plus cascading implicit-`any`s. These disappea
 
 ## 6. Recently resolved
 
+**Phase 0 — groundwork (2026-09-01, branch `feature/phase0-groundwork`, uncommitted at time of writing)**
+
+- **B1** — closing brace restored in `src/lib/query-builder.ts`; that single parse error had been masking
+  every other error in the repo.
+- **B2** — `factory.service.ts` rebuilt against the `QuerySerializer` class (it had imported a
+  `transformToPrisma` function that never existed). The `fixedWhere` parameter was dropped, so there is
+  no longer a second way to get tenancy wrong.
+- **B3** — `DashboardGrid.tsx` now imports from `react-grid-layout/legacy`, the v1-compatibility entry
+  point v2.2.3 ships. Copy-on-write for the readonly `Layout`, `GRID_MARGIN` hoisted as a readonly
+  tuple, and the stale `@types/react-grid-layout` removed from devDependencies.
+- **B4** — `src/app/theme.ts` deleted.
+- **B7** — `Expense.description` column added (`VARCHAR(256)`) and wired through the actions and form.
+- **Money type migrated** from Postgres `MONEY` to `Decimal(12,2)` on `Expense.amount` and `Asset.amount`.
+  **The database was not empty** — it held 1 user, 2 expenses, 2 assets — so this was applied via
+  `migrate diff` + `migrate deploy` after a backup to `/tmp/folio_dev_pre_phase0.sql`. All values
+  verified exact after the cast; `migrate status` reports no drift.
+- **Query layer hardened** beyond the plan: per-model field allowlists in `src/lib/query-fields.ts`
+  typed as `Extract<keyof T, string>`, and a `.strict()` `FilterOpsSchema` so unknown *operators* are
+  rejected rather than silently ignored.
+- **`ExpenseSchema.categoryId` is now `.nullable()`** — Prisma's column is `String?` and
+  `getUserExpenses` has always returned `null` for uncategorised rows. A real pre-existing error that
+  B1 was hiding.
+
+**Frontend cleanup (owner, `5407691` / `6996c01`)**
+
+- **B8** — `dashboard/page.tsx` now passes distinct `getMonthlyTrend(6)` and `getMonthlyTrend(12)`, and
+  the bar widget title is derived (`${monthlyTrend.length}-Month Spending Trend`) instead of hardcoded.
+- **B13** — the duplicated `"use client"` in `StatsSegmentsExpenses.tsx` is gone.
+
+**Earlier**
+
 - Dashboard SSR crash from `react-grid-layout` — fixed by the `DashboardGridClient` dynamic-import
   wrapper (`61dd5ba`).
 - Asset schema + Worth page shipped (`fbddaec`).
@@ -190,9 +193,8 @@ member 'PrismaClient' / 'Prisma'` plus cascading implicit-`any`s. These disappea
 
 ## 7. Open questions
 
-- Does the generic query layer (`QuerySerializer` + `factory.service`) stay, or do per-feature actions
-  remain the pattern? The half-finished state is the biggest source of dead code right now.
-- Should assets be point-in-time snapshots (one row per valuation per month) or mutable current
-  balances? `getMonthlyAssetTrend` sums assets *by their `date` field*, which reads as "assets acquired
-  that month" rather than "net worth that month" — the Monthly Overview chart's meaning depends on this.
 - Are `ADMIN`/`MODERATOR` roles actually going to be used? Nothing consumes them.
+
+> Two long-standing questions here were settled on 2026-08-31 and now live in `CURRENT.md` § Design
+> decisions: the generic query layer **stays** (fixed and adopted in Phase 0), and account balances are
+> **current balance + snapshot history**, which supersedes the old `getMonthlyAssetTrend` ambiguity.

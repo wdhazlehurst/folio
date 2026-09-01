@@ -6,6 +6,7 @@ import { getUserId } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ActionResult } from "@/types/api";
 import { QuerySerializer } from "@/lib/query-builder";
+import { ASSET_QUERY_FIELDS, type AssetQueryField } from "@/lib/query-fields";
 import { getCategoryById } from "./categories/actions";
 
 export async function addAsset(data: NewAsset): Promise<ActionResult> {
@@ -94,31 +95,33 @@ export async function getUserAssets(): Promise<Asset[]> {
   }));
 }
 
-export async function assetApi(query: any) {
+export async function assetApi(query: unknown) {
   const userId = await getUserId();
   if (!userId) redirect("/auth/login");
 
   try {
-    const serializer = new QuerySerializer(userId, query);
-    const prismaQuery = serializer.transform();
+    // Throws if the query names a field outside ASSET_QUERY_FIELDS.
+    const serializer = new QuerySerializer<Asset, AssetQueryField>(userId, query, ASSET_QUERY_FIELDS);
 
-    prismaQuery.select = {
-      id: true,
-      title: true,
-      amount: true,
-      isCash: true,
-      date: true,
-      category: { select: { title: true, id: true } },
-    };
-
-    const results = await dbClient.asset.findMany(prismaQuery);
+    const results = await dbClient.asset.findMany({
+      ...serializer.transform(),
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        isCash: true,
+        date: true,
+        category: { select: { title: true, id: true } },
+      },
+    });
 
     return results.map((a) => ({
       ...a,
       amount: a.amount.toNumber(),
     }));
-  } catch (error: any) {
-    console.error("Asset query error:", error.message);
-    return { error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Query failed";
+    console.error("Asset query error:", message);
+    return { error: message };
   }
 }

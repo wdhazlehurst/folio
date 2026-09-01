@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Asset" ALTER COLUMN "amount" SET DATA TYPE DECIMAL(12,2);
+
+-- AlterTable
+ALTER TABLE "Expense" ADD COLUMN     "description" VARCHAR(256),
+ALTER COLUMN "amount" SET DATA TYPE DECIMAL(12,2);

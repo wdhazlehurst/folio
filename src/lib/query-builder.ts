@@ -1,14 +1,41 @@
-import { MAX_PAGINATION, DEFAULT_PAGINATION } from "@/constants";
-import { QueryInput, QueryInputSchema } from "./schemas";
+import { DEFAULT_PAGINATION } from "@/constants";
+import { makeQueryInputSchema, type FilterOpsInput, type ValidatedQueryInput } from "./schemas";
+import type { SortDirection } from "@/types/api";
 
-export class QuerySerializer<T> {
-  private validatedData: QueryInput;
+/**
+ * The subset of Prisma `findMany` args this layer produces. Values are intentionally loose:
+ * `where`/`orderBy` are handed to a delegate whose argument types differ per model, and the
+ * call site supplies its own `select`.
+ */
+export type PrismaQueryArgs = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  where: Record<string, any>;
+  orderBy?: Record<string, SortDirection>;
+  take: number;
+  skip: number;
+};
+
+/**
+ * Validates a raw client query against a model's field allowlist and turns it into Prisma
+ * `findMany` args.
+ *
+ * `Field` is the model's allowlist union (see `query-fields.ts`); constraining it to
+ * `Extract<keyof T, string>` means an allowlist can only name columns that actually exist on the
+ * model type, so a typo is a compile error rather than a runtime one.
+ *
+ * @example
+ * const serializer = new QuerySerializer<Expense, ExpenseQueryField>(userId, query, EXPENSE_QUERY_FIELDS);
+ * const rows = await dbClient.expense.findMany({ ...serializer.transform(), select: { id: true } });
+ */
+export class QuerySerializer<T, Field extends Extract<keyof T, string> = Extract<keyof T, string>> {
+  private validatedData: ValidatedQueryInput<Field>;
 
   constructor(
     private userId: string,
-    rawInput: any
+    rawInput: unknown,
+    allowedFields: readonly [Field, ...Field[]]
   ) {
-    const result = QueryInputSchema.safeParse(rawInput);
+    const result = makeQueryInputSchema(allowedFields).safeParse(rawInput);
 
     if (!result.success) {
       const errorMsg = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");
@@ -18,28 +45,50 @@ export class QuerySerializer<T> {
     this.validatedData = result.data;
   }
 
-  public transform() {
-    const { filters, sort, select, pagination } = this.validatedData;
+  /** Page number and page size actually in effect, after defaults. */
+  public get pageInfo(): { page: number; limit: number } {
+    const { pagination } = this.validatedData;
+    return {
+      page: pagination?.page ?? 1,
+      limit: pagination?.limit ?? DEFAULT_PAGINATION,
+    };
+  }
+
+  public transform(): PrismaQueryArgs {
+    const { filters, sort } = this.validatedData;
+    const { page, limit } = this.pageInfo;
 
     return {
       where: {
         ...this.parseFilters(filters),
+        // Forced AFTER the spread — this is the tenancy boundary and must stay last.
         userId: this.userId,
       },
-      orderBy: sort,
-      take: pagination.limit || DEFAULT_PAGINATION,
-      skip: ((pagination.page || 1) - 1) * (pagination.limit || DEFAULT_PAGINATION),
-      select: select?.reduce((acc, field) => ({ ...acc, [field]: true }), {}),
+      orderBy: this.parseSort(sort),
+      take: limit,
+      skip: (page - 1) * limit,
     };
   }
 
-  private parseFilters(filters: any) {
+  /** Drops absent keys so the result is a plain `Record<string, SortDirection>` for Prisma. */
+  private parseSort(sort: ValidatedQueryInput<Field>["sort"]): Record<string, SortDirection> | undefined {
+    if (!sort) return undefined;
+
+    const orderBy: Record<string, SortDirection> = {};
+    for (const [key, direction] of Object.entries(sort) as [string, SortDirection | undefined][]) {
+      if (direction) orderBy[key] = direction;
+    }
+    return Object.keys(orderBy).length ? orderBy : undefined;
+  }
+
+  private parseFilters(filters: ValidatedQueryInput<Field>["filters"]) {
     if (!filters) return {};
 
-    const where: any = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: Record<string, any> = {};
 
-    for (const [key, ops] of Object.entries(filters)) {
-      const fieldOps: any = ops;
+    for (const [key, fieldOps] of Object.entries(filters) as [string, FilterOpsInput | undefined][]) {
+      if (!fieldOps) continue;
 
       //String handling (Fuzzy and exact)
       if (fieldOps.contains) {
@@ -68,3 +117,4 @@ export class QuerySerializer<T> {
     }
     return where;
   }
+}

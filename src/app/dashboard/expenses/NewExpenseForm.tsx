@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TextInput, NumberInput, Button, Select, Group, Stack, Alert, Modal } from "@mantine/core";
+import { TextInput, Textarea, NumberInput, Button, Select, Group, Stack, Alert, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { DatePickerInput } from "@mantine/dates";
 import { IconCurrencyDollar } from "@tabler/icons-react";
@@ -17,6 +17,7 @@ export interface NewExpenseFormValues {
   amount: number;
   category: string;
   categoryId: string;
+  description?: string;
   date: Date;
 }
 
@@ -30,6 +31,7 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<string | number>("");
   const [category, setCategory] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [date, setDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,6 +41,7 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
     setTitle("");
     setAmount("");
     setCategory(null);
+    setDescription("");
     setDate(null);
     setError(null);
   }
@@ -66,6 +69,8 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
         amount: parsedAmount,
         category: category,
         categoryId: category,
+        // Optional — send undefined rather than "" so the column stays NULL.
+        description: description.trim() || undefined,
         date: new Date(date),
       });
 
@@ -126,6 +131,16 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
               value={category}
               onChange={setCategory}
               required
+            />
+            <Textarea
+              label="Description"
+              placeholder="Optional note"
+              value={description}
+              onChange={(e) => setDescription(e.currentTarget.value)}
+              autosize
+              minRows={2}
+              maxRows={4}
+              maxLength={256}
             />
             <DatePickerInput
               label="Date"

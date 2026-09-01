@@ -34,11 +34,29 @@ export default function ExpensesPage() {
   }, [refreshData]);
 
   // --- NEW TEST QUERY FUNCTION ---
-  const runTestQuery = async () => {
+  const runQuery = async (label: string, query: unknown) => {
     setLoading(true);
     setError(null);
 
-    const query = {
+    try {
+      console.log(`[${label}] Sending query to Serializer:`, query);
+      const results = await expenseApi(query);
+
+      if (results && "error" in results) {
+        setError(`[${label}] rejected: ${results.error}`);
+      } else {
+        console.log(`[${label}] API Success! Results:`, results);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Query failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** Happy path: every field is on EXPENSE_QUERY_FIELDS, so this should return rows. */
+  const runTestQuery = () =>
+    runQuery("allowed", {
       filters: {
         title: { contains: "food lion" },
         amount: { min: 10, max: 50 },
@@ -48,23 +66,13 @@ export default function ExpensesPage() {
         },
       },
       pagination: { limit: 10, page: 1 },
-    };
+    });
 
-    try {
-      console.log("Sending query to Serializer:", query);
-      const results = await expenseApi(query);
-
-      if (results && "error" in results) {
-        setError(results.error as string);
-      } else {
-        console.log("API Success! Results:", results);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  /** Security check: `userId` is not allowlisted, so the serializer must reject this outright. */
+  const runRejectedQuery = () =>
+    runQuery("blocked", {
+      filters: { userId: { eq: "some-other-users-id" } },
+    });
 
   const handleUpdateExpense = async (updatedExpense: Expense) => {
     setError(null);
@@ -103,9 +111,14 @@ export default function ExpensesPage() {
         <Text size="sm" fw={500}>
           Query Serializer Test Bench:
         </Text>
-        <Button variant="light" onClick={runTestQuery} loading={loading}>
-          Execute getResponse()
-        </Button>
+        <Group gap="xs">
+          <Button variant="light" onClick={runTestQuery} loading={loading}>
+            Execute getResponse()
+          </Button>
+          <Button variant="light" color="red" onClick={runRejectedQuery} loading={loading}>
+            Query blocked field
+          </Button>
+        </Group>
       </Group>
 
       {error && (

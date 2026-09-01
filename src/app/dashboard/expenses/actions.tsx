@@ -1,14 +1,13 @@
 "use server";
 
-import { ExpenseSchema, type Expense } from "@/types/expense";
+import { type Expense } from "@/types/expense";
 import { dbClient } from "@/lib/prisma";
-import { PrismaClient } from "@prisma/client";
 import { getUserId } from "@/lib/auth";
 import { getCategoryById } from "./categories/actions";
 import { redirect } from "next/navigation";
-import { ActionResult, QueryInput } from "@/types/api";
-import { getModelData } from "@/services/factory.service";
+import { ActionResult } from "@/types/api";
 import { QuerySerializer } from "@/lib/query-builder";
+import { EXPENSE_QUERY_FIELDS, type ExpenseQueryField } from "@/lib/query-fields";
 
 /**
  * Add an `Expense` to the user's database table
@@ -31,6 +30,7 @@ export async function addExpense(data: Expense): Promise<ActionResult> {
     const newExpense = await dbClient.expense.create({
       data: {
         title: data.title,
+        description: data.description ?? null,
         amount: data.amount,
         userId: userId,
         categoryId: categoryId,
@@ -64,6 +64,7 @@ export async function updateExpense(data: Expense): Promise<ActionResult> {
       },
       data: {
         title: data.title,
+        description: data.description ?? null,
         amount: data.amount,
         categoryId: data.categoryId,
         date: data.date,
@@ -94,6 +95,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
     select: {
       id: true,
       title: true,
+      description: true,
       amount: true,
       category: {
         select: { title: true, id: true }, // Only need the category title
@@ -110,12 +112,12 @@ export async function getUserExpenses(): Promise<Expense[]> {
   return expenses.map((e) => ({
     id: e.id,
     title: e.title,
+    description: e.description ?? undefined,
     amount: e.amount.toNumber(),
     category: e.category?.title ?? "N/A",
     categoryId: e.category?.id ?? null,
     date: e.date,
     userId: e.userId,
-    // FIXME need to add description/note
   }));
 }
 
@@ -124,7 +126,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
  * @param query
  * @returns
  */
-export async function expenseApi(query: any) {
+export async function expenseApi(query: unknown) {
   const userId = await getUserId();
 
   if (!userId) {
@@ -132,30 +134,30 @@ export async function expenseApi(query: any) {
   }
 
   try {
-    const serializer = new QuerySerializer(userId, query);
-    const prismaQuery = serializer.transform();
+    // Throws if the query names a field outside EXPENSE_QUERY_FIELDS.
+    const serializer = new QuerySerializer<Expense, ExpenseQueryField>(userId, query, EXPENSE_QUERY_FIELDS);
 
-    prismaQuery.select = {
-      id: true,
-      title: true,
-      amount: true,
-      date: true,
-      category: {
-        select: { title: true, id: true },
+    const results = await dbClient.expense.findMany({
+      ...serializer.transform(),
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        amount: true,
+        date: true,
+        category: {
+          select: { title: true, id: true },
+        },
       },
-    };
+    });
 
-    console.log(prismaQuery);
-    const results = await dbClient.expense.findMany(prismaQuery);
-
-    const out = results.map((expense) => ({
+    return results.map((expense) => ({
       ...expense,
       amount: expense.amount.toNumber(),
     }));
-    console.log(out);
-    return out;
-  } catch (error: any) {
-    console.error("Query error:", error.message);
-    return { error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Query failed";
+    console.error("Query error:", message);
+    return { error: message };
   }
 }

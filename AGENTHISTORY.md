@@ -172,3 +172,61 @@ diagnose why the browser showed nothing at `localhost:3000`; restructure the age
 - Long term goals in `CURRENT.md` are still inferred, not owner-confirmed.
 - The Zen browser issue was resolved by the user; the cause was deliberately not recorded, at their
   request. If it recurs on another machine, it will need re-diagnosing from scratch.
+
+---
+
+## 2026-09-01 — Phase 0 planned, executed in a separate thread, then reviewed
+
+**Agent:** Claude Opus 5 (Claude Code) · **Branch:** `feature/phase0-groundwork` · **Commits:** none — the Phase 0 code is still uncommitted
+
+**Task:** Plan Phase 0 (groundwork) and write a handoff prompt; a separate thread executed it; then
+review that work and update the docs.
+
+**Changed (this thread):** documentation only — `OVERVIEW.md` §§ 2-7, `CURRENT.md` (Build sequence,
+bug table), `INDEX.md` (file map, data model, commands, conventions, status). All Phase 0 *code* was
+written by the other thread; see `OVERVIEW.md` § 6 for that record.
+
+**Learned:**
+
+- **`react-grid-layout` 2.2.3 ships `react-grid-layout/legacy`**, a supported v1-compatibility wrapper
+  exporting `ReactGridLayout`, `WidthProvider`, `Layout`, `LayoutItem`. Its `LegacyReactGridLayoutProps`
+  keeps the flat v1 props (`cols`, `margin`, `layout`, `draggableHandle`). This turned B3 from a rewrite
+  into an import swap. `Layout` is `readonly LayoutItem[]`, so state updates need copy-on-write, and
+  `margin` is a `readonly [number, number]` tuple that a JSX array literal won't satisfy.
+- **Changing `@db.Money` → `@db.Decimal(12,2)` requires no application code changes.** Prisma maps both
+  to the same `Decimal` TypeScript type, so existing `.toNumber()` call sites are untouched. Worth
+  knowing before anyone budgets time for a large refactor.
+- A stale `@types/react-grid-layout@1.3.6` was installed alongside v2's bundled types. Removed.
+
+**Traps / dead ends:**
+
+- **The plan assumed an empty database. It wasn't** — 1 user, 2 expenses, 2 assets. `prisma migrate dev`
+  refuses to run non-interactively when it detects possible data loss, which blocks the obvious path.
+  The working route: `pg_dump` a backup, inspect the SQL from `migrate diff`, apply with
+  `migrate deploy`, then verify values survived the cast. Postgres casts `money → numeric` cleanly.
+- **B8 and B13 were fixed by the owner's own frontend cleanup, not by Phase 0.** Don't attribute them to
+  the query-layer work when reading the history.
+
+**Verified** (independently — I re-ran everything rather than trusting the executing agent's report):
+
+- `npx tsc --noEmit` → exit 0, no output.
+- `prisma migrate status` → up to date, 7 migrations, no drift.
+- `information_schema`: both `amount` columns are `numeric(12,2)`; `Expense.description` is `varchar`.
+- Data intact after the cast — `4169.34`, `11400.00`, `550.00`, `250.00` all exact; row counts unchanged.
+- Read the full diff: **`userId` is still forced after the filter spread** (the tenancy boundary), and
+  `parseFilters`'s operator mapping is byte-identical to the original.
+- Owner confirmed the dashboard rearrange/drag/resize/persist cycle by hand — the one gap the executing
+  agent couldn't cover without browser automation.
+
+**Found — B17 (new).** `query-builder.ts:96` uses `else if (fieldOps.eq)`, so `eq: false` / `eq: 0` fail
+the truthiness test and the filter is silently skipped, returning every row. Pre-existing logic, but
+newly *reachable* because Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to
+`ASSET_QUERY_FIELDS`. Logged in `OVERVIEW.md` § 5 and `CURRENT.md`.
+
+**Left undone:**
+
+- **B17 is unfixed** — fix before Phase 1 filters on a boolean.
+- **The `feature/phase0-groundwork` branch is uncommitted.**
+- `src/lib/querys/` still present; the dev test bench is still in `expenses/page.tsx` (now with a second
+  blocked-field button); `factory.service.ts` compiles but has no caller.
+- B5 (tenancy bug in `getCategoryById`), B6, B9-B12, B14-B16 all still open.

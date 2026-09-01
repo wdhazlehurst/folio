@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import GridLayout from "react-grid-layout";
-
-type RGLItem = NonNullable<React.ComponentProps<typeof GridLayout>["layout"]>[number];
+// v2's v1-compatibility wrapper: same flat props (cols/margin/layout/draggableHandle) this
+// component was written against. The composable v2 API (useGridLayout) is a later job.
+import GridLayout, { type LayoutItem } from "react-grid-layout/legacy";
 import { useElementSize } from "@mantine/hooks";
 import { Paper, Text, Title, Stack, Button, Group } from "@mantine/core";
 import { BarChart, DonutChart } from "@mantine/charts";
@@ -74,15 +74,16 @@ type Props = {
 };
 
 const LAYOUT_STORAGE_KEY = "dashboard-layout";
+const GRID_MARGIN: readonly [number, number] = [12, 12];
 
-function saveLayout(newLayout: RGLItem[]) {
+function saveLayout(newLayout: readonly LayoutItem[]) {
   try {
     localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(newLayout));
   } catch {}
 }
 
 export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend, monthlyData, monthlyAssets }: Props) {
-  const [layout, setLayout] = useState<RGLItem[]>(() => {
+  const [layout, setLayout] = useState<LayoutItem[]>(() => {
     if (typeof window === "undefined") return DEFAULT_LAYOUT;
     try {
       const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
@@ -144,11 +145,11 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
           <GridLayout
             layout={lockedLayout}
             onDragStop={(newLayout) => {
-              setLayout(newLayout);
+              setLayout([...newLayout]);
               saveLayout(newLayout);
             }}
             onResizeStop={(newLayout) => {
-              setLayout(newLayout);
+              setLayout([...newLayout]);
               saveLayout(newLayout);
             }}
             cols={12}
@@ -156,7 +157,7 @@ export default function DashboardGrid({ expenseStats, categoryData, monthlyTrend
             width={width}
             draggableHandle=".drag-handle"
             isResizable={rearranging}
-            margin={[12, 12]}
+            margin={GRID_MARGIN}
           >
             <div key="expense-stats">
               <WidgetCard title="This Month" rearranging={rearranging}>

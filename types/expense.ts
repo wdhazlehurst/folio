@@ -6,7 +6,9 @@ export const ExpenseSchema = z.object({
   title: z.string(),
   amount: z.number(),
   category: z.string(),
-  categoryId: z.uuid(),
+  // Prisma's Expense.categoryId is optional, and getUserExpenses returns null for uncategorised
+  // rows — mirrors AssetSchema.
+  categoryId: z.uuid().nullable(),
   description: z.string().optional(),
   date: z.date(),
 });

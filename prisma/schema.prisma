@@ -47,7 +47,8 @@ model ExpenseCategory {
 model Expense {
   id            String            @id @default(uuid())
   title         String            @db.VarChar(32)
-  amount        Decimal           @db.Money
+  description   String?           @db.VarChar(256)
+  amount        Decimal           @db.Decimal(12, 2)
   userId        String
   user          User              @relation(fields: [userId], references: [id])
   categoryId    String?
@@ -74,7 +75,7 @@ model AssetCategory {
 model Asset {
   id         String          @id @default(uuid())
   title      String          @db.VarChar(32)
-  amount     Decimal         @db.Money
+  amount     Decimal         @db.Decimal(12, 2)
   isCash     Boolean         @default(false)
   userId     String
   user       User            @relation(fields: [userId], references: [id])

@@ -1,8 +1,7 @@
 // Zod Validation
 import { z } from "zod";
 import validator from "validator";
-import { MAX_PAGINATION, DEFAULT_PAGINATION } from "@/constants";
-import { Decimal } from "@prisma/client/runtime/library";
+import { MAX_PAGINATION } from "@/constants";
 
 export const emailSchema = z
   .string()
@@ -50,35 +49,62 @@ export const registerSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
-export type FilterOps<T> = T extends Date
-  ? { before?: string; after?: string }
-  : T extends number | Decimal
-    ? { min?: number; max?: number }
-    : T extends string
-      ? { contains?: string; eq?: string; in?: string[] }
-      : { eq?: T };
+const dateStringSchema = z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid date" });
 
-export const QueryInputSchema = z.object({
-  // Keys are model fields, values are FilterOps
-  filters: z.record(z.string(), z.any()).optional(),
-  // Keys are model fields, values must be "asc" or "desc"
-  sort: z.record(z.string(), z.enum(["asc", "desc"])).optional(),
-  // There should be a "select" parameter as well, but that is chosen by the backend
+/**
+ * Operators `QuerySerializer.parseFilters` knows how to map onto Prisma.
+ * `.strict()` so an unrecognised operator is rejected rather than silently ignored.
+ */
+export const FilterOpsSchema = z
+  .object({
+    // strings
+    contains: z.string().optional(),
+    eq: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    in: z.array(z.union([z.string(), z.number()])).optional(),
+    // numbers
+    min: z.number().optional(),
+    max: z.number().optional(),
+    // dates — anything Date can parse, so date-only strings work as well as full ISO
+    before: dateStringSchema.optional(),
+    after: dateStringSchema.optional(),
+  })
+  .strict();
 
-  // Pagination includes the page size (limit) and page number (page)
-  pagination: z.object({
-    limit: z
-      .number()
-      .int("Limit must be a positive integer")
-      .positive("Limit must be positive integer")
-      .max(MAX_PAGINATION, `Maximum limit is ${MAX_PAGINATION}`)
-      .optional(),
-    page: z
-      .number()
-      .int("Page number must be a positive integer")
-      .min(1, "Page number must be a positive integer")
-      .optional(),
-  }),
+export type FilterOpsInput = z.infer<typeof FilterOpsSchema>;
+
+export const PaginationSchema = z.object({
+  limit: z
+    .number()
+    .int("Limit must be a positive integer")
+    .positive("Limit must be positive integer")
+    .max(MAX_PAGINATION, `Maximum limit is ${MAX_PAGINATION}`)
+    .optional(),
+  page: z
+    .number()
+    .int("Page number must be a positive integer")
+    .min(1, "Page number must be a positive integer")
+    .optional(),
 });
 
-export type QueryInput = z.infer<typeof QueryInputSchema>;
+/**
+ * Builds a query schema bound to one model's field allowlist.
+ *
+ * Filter and sort keys are validated against `allowedFields` so arbitrary field names can
+ * never reach Prisma's `where`/`orderBy`. Allowlists live in `src/lib/query-fields.ts`.
+ * There is no `select` here on purpose — the shape returned to the client is the backend's
+ * choice, made at the call site.
+ */
+export function makeQueryInputSchema<F extends string>(allowedFields: readonly [F, ...F[]]) {
+  const field = z.enum(allowedFields);
+
+  return z.object({
+    // Keys are model fields, values are filter operators
+    filters: z.partialRecord(field, FilterOpsSchema).optional(),
+    // Keys are model fields, values must be "asc" or "desc"
+    sort: z.partialRecord(field, z.enum(["asc", "desc"])).optional(),
+    // Page size (limit) and page number (page); both fall back to defaults
+    pagination: PaginationSchema.optional(),
+  });
+}
+
+export type ValidatedQueryInput<F extends string = string> = z.infer<ReturnType<typeof makeQueryInputSchema<F>>>;

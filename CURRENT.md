@@ -7,7 +7,7 @@ bugs not worth a full entry in `OVERVIEW.md`.
 the bottom is archive — skip it unless something there is directly relevant to what you've been asked
 to do.
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-01
 
 ---
 
@@ -45,9 +45,13 @@ rebuilt later. The vision in that section is the design target, not a someday wi
 Decision: model Earnings and the allocation layer **together** in one migration (they're tightly
 coupled), then vertical slices for Debts and Investments.
 
-- **Phase 0 — groundwork.** Schema-wide migration: all money columns → `Decimal(12,2)`, rates →
-  `Decimal(6,4)`, and add the missing `Expense.description` column (closes B7). Cheap now while the
-  database is empty, painful later. Also the query-layer rewrite below (closes B1 and B2).
+- **Phase 0 — groundwork.** ✅ **Complete 2026-09-01** (branch `feature/phase0-groundwork`).
+  `Expense.amount` and `Asset.amount` migrated to `Decimal(12,2)`, `Expense.description` added, and the
+  query layer rewritten with per-model field allowlists. Closes B1, B2, B3, B4, B7. `tsc --noEmit` is at
+  0 errors and `npm run build` succeeds. **The database was not empty** — existing rows were preserved
+  through the `money → numeric` cast via `migrate diff` + `migrate deploy` after a backup. Rates
+  (`Decimal(6,4)`) were **not** added; no model needs them until Phase 2 Debts.
+  See `OVERVIEW.md` § 6 for the full record.
 - **Phase 1 — Earnings + allocation.** Both models in one migration, then actions, then UI.
 - **Phase 2 — Debts.** Full vertical slice: schema → actions → UI, wired into allocation.
 - **Phase 3 — Investments.** Basic model only (see Scope limit). Rename the Worth page to Assets here.
@@ -232,23 +236,21 @@ Inferred from the code, not owner-confirmed.
 
 ## Known minor bugs
 
-Mostly small stuff — cosmetic, dead code, papercuts — plus B1, which is listed here because it blocks
-data entry. The remaining build breaks and the security issue live in **`OVERVIEW.md` § 5** (B2, B3,
-B5). IDs match `OVERVIEW.md` numbering; full detail for each is there.
+Small stuff — cosmetic, dead code, papercuts. The security issue (B5) lives in **`OVERVIEW.md` § 5**;
+resolved items are recorded in `OVERVIEW.md` § 6. IDs match `OVERVIEW.md` numbering; full detail for
+each is there.
+
+**Closed by Phase 0 (2026-09-01):** B1, B2, B3, B4, B7. **Closed by frontend cleanup:** B8, B13.
 
 | ID  | Bug                                                                                                            |
 | --- | ---------------------------------------------------------------------------------------------------------------- |
-| B1  | ⚠ **Blocking.** `src/lib/query-builder.ts` is missing the closing brace on the `QuerySerializer` class, so `/dashboard/expenses` and `/dashboard/worth` fail to compile. Those are the only pages where expenses and assets get entered, so the app can't be populated until this is fixed. A one-character fix unblocks the build; **scheduled for Phase 0** as part of the query-layer rewrite (see Current task). |
-| B4  | `src/app/theme.ts` imports `@mui/material/styles`; MUI isn't installed and nothing imports the file. Dead — delete. |
-| B7  | `Expense.description` exists in the Zod type and `NewExpense` but not in the Prisma schema. Code carries a `// FIXME`. **Resolved:** add the column in the Phase 0 migration. |
-| B8  | `dashboard/page.tsx` passes the same value as both `monthlyTrend` and `monthlyData`, so two widgets show the same series. The bar widget is titled "6-Month Spending Trend" but is fed 12 months. |
 | B9  | `dashboard/DashboardLayout.tsx` is dead code superseded by `dashboard/page.tsx`, and its name collides confusingly with `dashboard/layout.tsx`. |
 | B10 | `requireRole` redirects to `/unauthorized`, which doesn't exist. Marked `// TODO`. Unreachable today.             |
 | B11 | Landing page says "Welcome to FinanceApp" while the app is branded Folio everywhere else.                        |
 | B12 | `postcss-preset-mantine` is installed but there's no `postcss.config.mjs`. Nothing breaks today, but Mantine mixins (`@mixin dark`, `rem()`) will silently no-op. |
-| B13 | `StatsSegmentsExpenses.tsx` has a duplicated `"use client"` directive (lines 1 and 4).                            |
 | B14 | `Dockerfile` uses `RUN chmod +X` (capital X) on the entrypoint, which may leave it non-executable. Should be `+x`. |
 | B15 | `new PrismaClient()` at module scope with no `globalThis` singleton — leaks connections across dev HMR reloads.   |
+| B17 | ⚠ **Wrong results, silent.** `query-builder.ts:96` tests `else if (fieldOps.eq)`, so `eq: false` / `eq: 0` are skipped and no filter is applied — the query returns *every* row. Newly reachable: Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to `ASSET_QUERY_FIELDS`. Fix: `fieldOps.eq !== undefined`. **Fix before Phase 1 filters on a boolean.** |
 | —   | Branch name typo: `feature/dashboard-integeration`. Harmless; note before merging.                                |
 
 ### Gotchas (not bugs — don't "fix" these)
