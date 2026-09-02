@@ -7,7 +7,7 @@ bugs not worth a full entry in `OVERVIEW.md`.
 the bottom is archive — skip it unless something there is directly relevant to what you've been asked
 to do.
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-01 (Phase 1 complete)
 
 ---
 
@@ -52,7 +52,14 @@ coupled), then vertical slices for Debts and Investments.
   through the `money → numeric` cast via `migrate diff` + `migrate deploy` after a backup. Rates
   (`Decimal(6,4)`) were **not** added; no model needs them until Phase 2 Debts.
   See `OVERVIEW.md` § 6 for the full record.
-- **Phase 1 — Earnings + allocation.** Both models in one migration, then actions, then UI.
+- **Phase 1 — Earnings + allocation.** ✅ **Complete 2026-09-01** (branch `limit-testing`, uncommitted).
+  6 models + 4 enums in one additive migration: `EarningRule`, `Earning`, `EarningException`,
+  `BudgetBucket`, `BucketPeriod`, `BucketAllocation`, plus `Expense.bucketId`. New pure modules
+  `src/lib/recurrence.ts`, `dates.ts`, `format.ts`; routes `/dashboard/earnings` and `/dashboard/budget`.
+  Closes B17 and B18. `tsc` 0 errors, `npm run build` succeeds. Design decisions all honoured —
+  notably, bucket funding from actual income is enforced *structurally* (a projected occurrence has no
+  row, so `BucketAllocation.earningId` has nothing to reference), and the rolling averages are wired
+  nowhere near bucket funding.
 - **Phase 2 — Debts.** Full vertical slice: schema → actions → UI, wired into allocation.
 - **Phase 3 — Investments.** Basic model only (see Scope limit). Rename the Worth page to Assets here.
 
@@ -240,7 +247,7 @@ Small stuff — cosmetic, dead code, papercuts. The security issue (B5) lives in
 resolved items are recorded in `OVERVIEW.md` § 6. IDs match `OVERVIEW.md` numbering; full detail for
 each is there.
 
-**Closed by Phase 0 (2026-09-01):** B1, B2, B3, B4, B7. **Closed by frontend cleanup:** B8, B13.
+**Closed by Phase 0:** B1, B2, B3, B4, B7. **Closed by Phase 1:** B17, B18. **Closed by frontend cleanup:** B8, B13.
 
 | ID  | Bug                                                                                                            |
 | --- | ---------------------------------------------------------------------------------------------------------------- |
@@ -250,7 +257,7 @@ each is there.
 | B12 | `postcss-preset-mantine` is installed but there's no `postcss.config.mjs`. Nothing breaks today, but Mantine mixins (`@mixin dark`, `rem()`) will silently no-op. |
 | B14 | `Dockerfile` uses `RUN chmod +X` (capital X) on the entrypoint, which may leave it non-executable. Should be `+x`. |
 | B15 | `new PrismaClient()` at module scope with no `globalThis` singleton — leaks connections across dev HMR reloads.   |
-| B17 | ⚠ **Wrong results, silent.** `query-builder.ts:96` tests `else if (fieldOps.eq)`, so `eq: false` / `eq: 0` are skipped and no filter is applied — the query returns *every* row. Newly reachable: Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to `ASSET_QUERY_FIELDS`. Fix: `fieldOps.eq !== undefined`. **Fix before Phase 1 filters on a boolean.** |
+| B19 | `DatePickerInput` in `ExpenseTable.tsx` / `AssetTable.tsx` is handed a UTC-midnight `Date` and renders it in local time, so **editing shows the previous day** west of UTC. The read-only text is fine (it goes through `toISOString()`). Fix by routing both through `src/lib/dates.ts` / `formatDay`, as the Phase 1 pages do. |
 | —   | Branch name typo: `feature/dashboard-integeration`. Harmless; note before merging.                                |
 
 ### Gotchas (not bugs — don't "fix" these)

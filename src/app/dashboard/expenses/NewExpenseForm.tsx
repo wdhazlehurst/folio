@@ -6,7 +6,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { DatePickerInput } from "@mantine/dates";
 import { IconCurrencyDollar } from "@tabler/icons-react";
 
-interface Category {
+interface SelectOption {
   value: string;
   label: string;
 }
@@ -18,20 +18,25 @@ export interface NewExpenseFormValues {
   category: string;
   categoryId: string;
   description?: string;
+  /** Optional budget bucket to charge this expense against. */
+  bucketId?: string | null;
   date: Date;
 }
 
 interface ExpenseFormProps {
-  categories: Category[];
+  categories: SelectOption[];
+  /** Budget buckets available to charge against. Empty until the user creates some. */
+  buckets?: SelectOption[];
   onSubmit: (expense: NewExpenseFormValues) => Promise<{ ok: boolean; error?: string } | void>;
   onUpdate: () => void;
 }
 
-export default function NewExpenseForm({ categories, onSubmit, onUpdate }: ExpenseFormProps) {
+export default function NewExpenseForm({ categories, buckets = [], onSubmit, onUpdate }: ExpenseFormProps) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<string | number>("");
   const [category, setCategory] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [bucketId, setBucketId] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +47,7 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
     setAmount("");
     setCategory(null);
     setDescription("");
+    setBucketId(null);
     setDate(null);
     setError(null);
   }
@@ -71,6 +77,7 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
         categoryId: category,
         // Optional — send undefined rather than "" so the column stays NULL.
         description: description.trim() || undefined,
+        bucketId,
         date: new Date(date),
       });
 
@@ -142,6 +149,17 @@ export default function NewExpenseForm({ categories, onSubmit, onUpdate }: Expen
               maxRows={4}
               maxLength={256}
             />
+            {buckets.length > 0 && (
+              <Select
+                label="Budget bucket"
+                description="Optional — charges this expense against a bucket"
+                placeholder="Not budgeted"
+                data={buckets}
+                value={bucketId}
+                onChange={setBucketId}
+                clearable
+              />
+            )}
             <DatePickerInput
               label="Date"
               placeholder="Select Date"

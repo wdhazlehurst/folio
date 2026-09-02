@@ -5,7 +5,8 @@ searching the tree file-by-file.
 
 ## Rules for agents
 
-Follow these on every task in this repo.
+Follow these on every task in this repo. They are binding, not advisory — when a rule and your own
+judgement disagree, follow the rule or stop and ask.
 
 1. **Never make assumptions — ask before assuming.** This goes both ways: if the user appears to be
    assuming something, ask them to clarify rather than going along with it.
@@ -30,6 +31,13 @@ Follow these on every task in this repo.
    user is working on — it's theirs to set, not yours to infer. If you think something belongs there
    (the task has shifted, or work you did warrants adding to it), **ask**; don't write it. This holds
    even under rule 5: those exceptions cover the bug lists and `AGENTHISTORY.md`, never Current task.
+7. **Ask before anything that deletes or modifies existing data.** `deleteMany` / `updateMany`,
+   `prisma migrate reset`, dropping or retyping a populated column, and — the one that has already bitten
+   us — **cleanup steps in verification scripts**. This repo is often driven in bypass-permissions mode,
+   so nothing external will stop you; the check has to be yours. When you do get the go-ahead: back up
+   first (`pg_dump`), scope deletes to ids your own script created rather than to `userId`, and assert
+   that pre-existing rows survived before you report success. The dev database holds hand-entered data
+   that cannot be regenerated.
 
 ## The four docs
 
@@ -128,7 +136,7 @@ live next to their component instead.
 ### `prisma/`
 
 - `schema.prisma` — datasource `postgresql`, generator `prisma-client-js`. Models below.
-- `migrations/` — 7 migrations, latest `20260901040344_phase0_decimal_money_and_expense_description`.
+- `migrations/` — 8 migrations, latest `20260901164154_phase1_earnings_and_budget`.
 
 **Data model** (all IDs are `uuid` strings; money is `@db.Decimal(12, 2)` → Prisma `Decimal`; `date` is `@db.Date`):
 
@@ -138,11 +146,38 @@ User            id, email(unique), password(bcrypt), role(Role enum: USER|ADMIN|
 
 ExpenseCategory id, title(≤32), description?(≤128), userId, createdAt, updatedAt
                 @@unique([title, userId])  @@index([userId])
-Expense         id, title(≤32), description?(≤256), amount(Decimal 12,2), userId, categoryId?, date, ...
+Expense         id, title(≤32), description?(≤256), amount(Decimal 12,2), userId, categoryId?,
+                bucketId? (charge against a budget bucket), date, ...
 
 AssetCategory   id, title(≤32), description?(≤128), userId, createdAt, updatedAt
                 @@unique([title, userId])  @@index([userId])
 Asset           id, title(≤32), amount(Decimal 12,2), isCash(bool), userId, categoryId?, date, ...
+```
+
+**Phase 1 — earnings + budget** (enums: `PostingStatus` PROJECTED|CONFIRMED|CANCELLED ·
+`EarningFrequency` WEEKLY|BIWEEKLY|SEMI_MONTHLY|MONTHLY · `OccurrenceExceptionAction` SKIP|OVERRIDE ·
+`BucketAllocationType` PERCENT|FIXED):
+
+```
+EarningRule       recurring income definition: grossAmount, netAmount, frequency, anchorDate
+                  (= the date money HITS THE ACCOUNT), secondDayOfMonth?, endDate?, isActive,
+                  lastMaterializedThrough (catch-up watermark for the future launch-time checker)
+Earning           a materialised occurrence, or a one-off when ruleId is null. status(PostingStatus),
+                  date (actual), scheduledDate (the rule slot it fills — kept separate so an override
+                  cannot make the projector re-emit), confirmedAt
+                  @@unique([ruleId, scheduledDate])  ← idempotent auto-posting; NULLs are distinct in
+                  Postgres, so unlimited one-offs never collide
+                  rule relation is onDelete: SetNull — deleting a rule must not destroy posted income
+EarningException  skips or overrides ONE future slot of a rule (date/gross/net). Phase 2's debt
+                  payment override is meant to be structurally identical.
+
+BudgetBucket      envelope: allocationType, allocationValue, rollover(bool, opt-in per bucket),
+                  sortOrder, isActive
+BucketPeriod      one month of one bucket; openingBalance is the rollover carry-in and the ONLY
+                  stored figure — allocated and spent are derived. closedAt makes closing idempotent.
+BucketAllocation  money moved from one CONFIRMED Earning into one bucket.
+                  The earningId FK is what structurally enforces "buckets fund from actual income,
+                  never projections" — a projected occurrence has no row, so it has no id to cite.
 ```
 
 Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expense has **no**
@@ -155,6 +190,8 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `api.ts`          | `ActionResult` = `{ok:true} \| {ok:false,error}` — the standard server-action return. Also the **single** home for query types: `FilterOps<T>`, `QueryInput<T>`, `SortDirection`, `Pagination`, `PagedResult<T>`, plus `ResultData<T>`. |
 | `expense.ts`      | Zod `ExpenseSchema`/`ExpenseCategorySchema` + inferred types, plus `NewExpense`/`NewExpenseCategory` interfaces (client→server payloads). |
 | `asset.ts`        | Same shape for assets: `AssetSchema`, `AssetCategorySchema`, `NewAsset`, `NewAssetCategory`.        |
+| `earning.ts`      | Zod schemas + view types for `EarningRule`/`Earning`/exceptions (`NewEarningRule`, `NewEarning`, `EarningRuleView`, `EarningView`, `ProjectedOccurrenceView`, `IncomeAverage`). |
+| `budget.ts`       | Zod schemas + view types for buckets (`NewBucket`, `BucketView`, `BucketHealth` = ok\|warning\|overdrawn, `AllocateEarningInput`). |
 | `next-auth.d.ts`  | Augments NextAuth `User`/`Session`/`JWT` with `id`, `email`, `role`.                                |
 | `types.d.ts`      | Older, conflicting NextAuth `User` augmentation. Effectively dead (see OVERVIEW). Not typechecked because of `skipLibCheck`. |
 
@@ -169,6 +206,9 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `schemas.ts`       | `emailSchema`, `passwordSchema` (6+ chars w/ complexity rules, or 16+ char passphrase), `registerSchema`, `PaginationSchema`, a `.strict()` `FilterOpsSchema` (unknown operators rejected), and **`makeQueryInputSchema(allowedFields)`** — a factory binding a query schema to one model's field allowlist. |
 | `query-builder.ts` | `QuerySerializer<T, Field>` class — validates raw input against the model's allowlist, `transform()` returns Prisma args (`where`/`orderBy`/`take`/`skip`); `pageInfo` getter exposes the effective page/limit. `parseFilters` maps `contains/eq/in`, `min/max`→`gte/lte`, `before/after`→`lt/gt`. **`userId` is forced into `where` *after* the filter spread — that is the tenancy boundary; never move it.** |
 | `query-fields.ts`  | Per-model field allowlists (`EXPENSE_QUERY_FIELDS`, `ASSET_QUERY_FIELDS`, + both category models), typed `Extract<keyof T, string>` so a typo is a compile error. **A field is only queryable if listed here.** |
+| `recurrence.ts`    | **Pure** occurrence expansion for recurring rules — no Prisma, no `Decimal`. One implementation serves projection (today → horizon, computed), materialisation (watermark → today, written), and the future catch-up checker, so the UI and the writer can never disagree about when a rule fires. Phase 2's debt schedule reuses it. |
+| `dates.ts`         | UTC date helpers. `@db.Date` round-trips as UTC midnight; local-time accessors (`getMonth`, `setDate`) shift the day for anyone west of UTC and silently move pay dates. **Use these anywhere a `@db.Date` is involved.** |
+| `format.ts`        | `formatCurrency`, `formatDay` — shared display formatting. `formatDay` forces `timeZone: "UTC"` for the reason above. |
 | `zodMantine.ts`    | `zodValidate(schema)` → Mantine `useForm` `validate` function (first error per field).                                     |
 | `querys/query.ts`  | Empty file.                                                                                                              |
 | `querys/types.ts`  | Fully commented out. Both `querys/` files are abandoned scaffolding.                                                       |
@@ -207,6 +247,9 @@ dashboard/page.tsx         server page: parallel-fetches summaries and renders <
 dashboard/DashboardLayout.tsx  older/alternate server dashboard body — NOT routed, superseded by page.tsx
 dashboard/summary-db.ts    "use server" aggregation helpers (see below)
 dashboard/charts/page.tsx  stub — just a "Charts" title
+dashboard/earnings/        Earnings: rules table, pending-confirmation banner, occurrence table,
+                           projected table w/ skip+override, income averages card
+dashboard/budget/          Budget buckets: bucket cards (green/yellow/red), allocation panel
 dashboard/settings/        SettingsPage + DisplayNameSetting(+WithSession) — UI only, no persistence yet
 dashboard/expenses/        expenses CRUD page (see below)
 dashboard/worth/           assets CRUD page (see below)
@@ -311,16 +354,20 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 | New aggregation / chart data        | `src/app/dashboard/summary-db.ts`                          |
 | Filtering / pagination / sorting    | `src/lib/query-builder.ts` + `makeQueryInputSchema` in `src/lib/schemas.ts`; add the field to `src/lib/query-fields.ts` |
 | Add a nav item                      | `components/DashboardNavbar.tsx` (`data` array)            |
+| Recurring-schedule maths            | `src/lib/recurrence.ts` (pure) — never reimplement per feature |
+| Any `@db.Date` arithmetic           | `src/lib/dates.ts` (UTC-safe); display via `formatDay`     |
+| Earnings / income averages          | `src/app/dashboard/earnings/actions.tsx`                   |
+| Budget buckets / allocation         | `src/app/dashboard/budget/actions.tsx`                     |
 | Validation rules                    | `src/lib/schemas.ts`, `src/lib/validators.ts`              |
 | Expense CRUD                        | `src/app/dashboard/expenses/actions.tsx`                   |
 | Asset CRUD                          | `src/app/dashboard/worth/actions.tsx`                      |
 
 ## Status
 
-The repo **typechecks and builds** as of 2026-09-01 (Phase 0). Run `npx prisma generate` before any
-typecheck or you'll see ~20 phantom `@prisma/client` errors that aren't real.
+The repo **typechecks and builds** as of 2026-09-01 (Phases 0 and 1 complete). Run `npx prisma generate`
+before any typecheck or you'll see ~20 phantom `@prisma/client` errors that aren't real.
 
 Read `CURRENT.md` for what's actively being worked on, the settled design decisions, and known minor
 bugs and gotchas. `OVERVIEW.md` § 5 has the remaining issues — note **B5**, a real tenancy bug in
-`expenses/categories/actions.tsx#getCategoryById`, and **B17**, a silent wrong-results bug in
-`parseFilters`.
+`expenses/categories/actions.tsx#getCategoryById`, and **B19**, an off-by-one date in the expense and
+asset edit pickers.

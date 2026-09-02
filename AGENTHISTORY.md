@@ -230,3 +230,68 @@ newly *reachable* because Phase 0 added `boolean` to `FilterOpsSchema.eq` and `i
 - `src/lib/querys/` still present; the dev test bench is still in `expenses/page.tsx` (now with a second
   blocked-field button); `factory.service.ts` compiles but has no caller.
 - B5 (tenancy bug in `getCategoryById`), B6, B9-B12, B14-B16 all still open.
+
+---
+
+## 2026-09-01 — Phase 1 (Earnings + budget allocation) executed in a separate thread, then reviewed
+
+**Agent:** Claude Opus 5 (Claude Code) · **Branch:** `limit-testing` · **Commits:** none — Phase 1 is uncommitted
+
+**Task:** Write the Phase 1 kickoff prompt; a separate thread built it; then review that work and do
+the doc pass. (Phase 0 landed as `d52de80` before this.)
+
+**Changed (this thread):** documentation only — `INDEX.md` (new rule 7, Phase 1 file map, data model),
+`CURRENT.md`, `OVERVIEW.md`, this file.
+
+**Learned:**
+
+- **The Phase 1 schema is the template Phases 2-3 must follow.** `EarningException` is explicitly
+  designed so the debt payment override is structurally identical, and `src/lib/recurrence.ts` is pure
+  (no Prisma, no `Decimal`) so the debt schedule reuses it rather than reimplementing. Read both before
+  starting Phase 2.
+- **`@@unique([ruleId, scheduledDate])` is what makes auto-posting idempotent**, and it relies on
+  Postgres treating NULLs as distinct so unlimited one-off earnings never collide on it.
+- **`scheduledDate` is deliberately separate from `date`.** Overriding an occurrence's actual date must
+  not make the projector think the slot is unfilled and re-emit it.
+- **"Buckets fund from actual income" is enforced by the schema, not by discipline.** A projected
+  occurrence is computed and has no row, so `BucketAllocation.earningId` has nothing to reference.
+  There is no code path that can allocate projected income.
+- `@db.Date` round-trips as UTC midnight. Local-time accessors shift the day west of UTC — this is why
+  `src/lib/dates.ts` exists and why `formatDay` forces `timeZone: "UTC"`.
+
+**Traps / dead ends:**
+
+- **A verification script deleted the owner's hand-entered test data.** Its cleanup was
+  `deleteMany({ where: { userId } })` — written in an earlier session when those tables held only
+  agent-created rows. This repo runs in bypass-permissions mode, so nothing blocked it. **This is now
+  `INDEX.md` rule 7:** ask before deleting or modifying existing data, back up first, and scope deletes
+  to ids the script itself created.
+- Don't trust a "verified" claim about pre-existing behaviour without checking scope. The Phase 1 agent
+  reported that `ExpenseTable`/`AssetTable` were "likely showing off-by-one dates already"; the picker
+  is affected (B19) but the read-only text is not, because it formats via `toISOString()`.
+
+**Verified** (re-ran everything rather than trusting the report):
+
+- `npx tsc --noEmit` → exit 0. `npm run build` → succeeds, with `/dashboard/earnings` and
+  `/dashboard/budget` both emitted. `prisma migrate status` → 8 migrations, no drift.
+- Schema read against all fifteen design decisions in `CURRENT.md` — gross+net with no deduction model,
+  deposit-date anchoring, rule+occurrence+exception, shared `PostingStatus`, per-bucket rollover,
+  `lastMaterializedThrough` leaving room for the catch-up checker. All honoured.
+- **Averages are advisory only** — no reference to `getIncomeAverages` or `ROLLING_AVERAGE_WINDOWS`
+  anywhere under `budget/`, and allocation requires `status === CONFIRMED`.
+- B17 fix confirmed in source, applied to `contains`/`eq`/`in`. B18 fix read and reasoned through:
+  numerator `CONFIRMED`-only over a denominator of total history is correct and rises monotonically.
+- Field allowlists added for all four new queryable models, per convention 9.
+- **Not verified by me:** no browser click-through. The owner exercised the feature by hand — that is
+  how B18 was found — and confirmed the flow works.
+
+**Left undone:**
+
+- **Phase 1 is uncommitted on `limit-testing`.**
+- **B19 open** (off-by-one in the two edit pickers). B5 (tenancy bug in `getCategoryById`), B6, B9-B12,
+  B14-B16 all still open.
+- `feature/phase0-groundwork` is a stale branch with none of the Phase 0 work on it — delete it.
+- `README.md` § "Coding with Agents" still tells agents the repo doesn't compile.
+- Two design calls were made without asking, against the prompt's instruction: deleting a
+  rule-generated occurrence writes a SKIP exception, and allocating an earning whose month has closed
+  funds the current month. Both disclosed, both accepted by the owner.

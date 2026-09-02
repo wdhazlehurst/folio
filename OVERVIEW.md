@@ -5,7 +5,7 @@ tick off tasks, add newly found bugs, move fixed items to Recently Resolved.
 
 For the file-by-file map, see `INDEX.md`. For per-session agent notes, see `AGENTHISTORY.md`.
 
-**Last updated:** 2026-09-01 · **Branch:** `feature/phase0-groundwork` · **Version:** 0.0.1
+**Last updated:** 2026-09-01 · **Branch:** `limit-testing` · **Version:** 0.0.1
 
 ---
 
@@ -46,6 +46,8 @@ the product vision — see `CURRENT.md`.)
 | Assets / Worth page           | Working (add, inline edit, list, `isCash`). Newest feature — least exercised.             |
 | Asset categories              | Working (add, edit). No delete.                                                           |
 | Dashboard widgets             | Working: stats bar, category donut, spending bar chart, Unovis expense-vs-asset area chart. Layout persists in `localStorage`. |
+| Earnings (`/dashboard/earnings`) | **New (Phase 1).** Recurring rules, auto-posted occurrences with confirm/cancel, skip+override on projected slots, trailing income averages. |
+| Budget (`/dashboard/budget`)  | **New (Phase 1).** Envelope buckets w/ per-bucket rollover, monthly periods, allocation from confirmed income, green/yellow/red health. |
 | Charts page (`/dashboard/charts`) | Stub — renders a title only.                                                          |
 | Settings page                 | UI only. Display name, password change, and delete account do nothing.                    |
 | Generic query API             | **Working.** `QuerySerializer` + per-model field allowlists; `factory.service.ts` rebuilt but not yet called. |
@@ -76,7 +78,7 @@ Ordered roughly by priority. Check off and date items as they land.
       once the API is trusted. It now has two buttons (valid query + blocked-field check).
 - [ ] Delete the abandoned `src/lib/querys/` folder (`query.ts` empty, `types.ts` fully commented out).
       Still present.
-- [ ] Fix B17 (falsy `eq` values dropped) before Phase 1 filters on a boolean.
+- [x] Fix B17 (falsy `eq` values dropped) — done in Phase 1; `!== undefined` now applied to `contains`, `eq`, and `in`.
 - [ ] `getModelData<T>` takes `QuerySerializer<any, any>`, so its `T` is unconnected to the serializer's
       and `data as T[]` is an unchecked assertion. Tighten when it gets its first caller.
 
@@ -99,6 +101,10 @@ Ordered roughly by priority. Check off and date items as they land.
 - [ ] Add a test runner and cover `summary-db.ts` bucketing and `QuerySerializer.parseFilters`.
 - [ ] Add CI running `lint` + `tsc --noEmit` + `build`.
 - [ ] Branch name typo: `feature/dashboard-integeration` (harmless, note before merging).
+- [ ] Delete the stale `feature/phase0-groundwork` branch — it points at `6996c01` and has none of the
+      Phase 0 work on it; that landed as `d52de80` instead.
+- [ ] `README.md` § "Coding with Agents" holds a bootstrap prompt that still claims the repo doesn't
+      typecheck or build, and points at B1-B3. Refresh or remove it.
 
 ## 5. Known issues & bugs
 
@@ -139,13 +145,17 @@ leaks connections across reloads. Use the standard `globalThis` cached-client pa
 **B16 — Reported dashboard crash.** Commit `dd7dc56` notes "crashed one time, don't know why exactly"
 in the draggable widget system. Unreproduced, root cause unknown.
 
-**B17 — `parseFilters` silently drops falsy `eq` values.** `src/lib/query-builder.ts:96` tests
+**B17 — RESOLVED, see § 6.** `parseFilters` silently drops falsy `eq` values. `src/lib/query-builder.ts:96` tests
 `else if (fieldOps.eq)`, so `eq: false` and `eq: 0` fail the truthiness check and no filter is applied —
 the query returns **every** row instead of the matching subset, with no error. Newly reachable because
 Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to `ASSET_QUERY_FIELDS`, so
-`assetApi({ filters: { isCash: { eq: false } } })` returns all assets. Fix: `fieldOps.eq !== undefined`;
-the `contains`/`in` branches deserve the same treatment. Nothing in the UI calls these APIs yet — only
-the dev test bench — but Phase 1 will.
+Fixed in Phase 1.
+
+**B19 — off-by-one date in the expense and asset edit pickers.** `DatePickerInput` in
+`ExpenseTable.tsx` and `AssetTable.tsx` receives a `@db.Date` value as a UTC-midnight `Date` and renders
+it with local-time accessors, so **editing a row shows the previous day** for anyone west of UTC. The
+read-only text column is correct because it formats via `toISOString()`. Fix by routing both through
+`src/lib/dates.ts` and `formatDay`, which the Phase 1 pages already do. Found during the Phase 1 review.
 
 ### Environment note (not a code bug)
 
@@ -177,6 +187,23 @@ member 'PrismaClient' / 'Prisma'` plus cascading implicit-`any`s. These disappea
 - **`ExpenseSchema.categoryId` is now `.nullable()`** — Prisma's column is `String?` and
   `getUserExpenses` has always returned `null` for uncategorised rows. A real pre-existing error that
   B1 was hiding.
+
+**Phase 1 — Earnings + budget allocation (2026-09-01, branch `limit-testing`, uncommitted)**
+
+- Six models and four enums in one additive migration, plus `Expense.bucketId`. No drift.
+- New pure modules: `src/lib/recurrence.ts` (occurrence expansion, no Prisma — one implementation
+  shared by projection, materialisation, and the future catch-up checker), `dates.ts` (UTC-safe date
+  maths), `format.ts`.
+- Routes `/dashboard/earnings` and `/dashboard/budget`, both in the navbar.
+- **B17** — `parseFilters` no longer drops falsy filter values; `!== undefined` applied to `contains`,
+  `eq`, and `in`, with a comment naming the bug.
+- **B18** — `getIncomeAverages` measured coverage from the earliest *confirmed* earning, so the divisor
+  tracked how far back the user had clicked Confirm rather than how much income history existed.
+  Confirming a recent paycheck inflated the monthly rate (observed ~3x reality) and only confirming the
+  oldest row corrected it. Coverage now derives from the earliest earning of **any** status; the
+  numerator stays `CONFIRMED`-only, so the figure rises monotonically to the true rate. The divisor is
+  also floored at one average month (`DAYS_PER_MONTH`), so a one-day history reads as what was actually
+  received instead of an absurd annualised figure. **Found by the owner while using the feature.**
 
 **Frontend cleanup (owner, `5407691` / `6996c01`)**
 

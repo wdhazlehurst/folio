@@ -19,43 +19,80 @@ enum Role {
   MODERATOR
 }
 
+/// Lifecycle of an auto-posted entry, shared by Earnings and (Phase 2) Debt payments.
+/// A row is written by the materialiser as PROJECTED — posted but not yet verified — and the
+/// user moves it to CONFIRMED or CANCELLED on next login. CANCELLED rows are kept for audit
+/// and excluded from every sum.
+enum PostingStatus {
+  PROJECTED
+  CONFIRMED
+  CANCELLED
+}
+
+enum EarningFrequency {
+  WEEKLY
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+enum OccurrenceExceptionAction {
+  SKIP
+  OVERRIDE
+}
+
+enum BucketAllocationType {
+  PERCENT
+  FIXED
+}
+
 model User {
-  id            String                @id @default(uuid())
-  email         String                @unique
-  password      String
-  role          Role                  @default(USER)
-  expenses      Expense[]
+  id                String             @id @default(uuid())
+  email             String             @unique
+  password          String
+  role              Role               @default(USER)
+  expenses          Expense[]
   expenseCategories ExpenseCategory[]
-  assets        Asset[]
-  assetCategories AssetCategory[]
+  assets            Asset[]
+  assetCategories   AssetCategory[]
+  earningRules      EarningRule[]
+  earnings          Earning[]
+  earningExceptions EarningException[]
+  budgetBuckets     BudgetBucket[]
+  bucketPeriods     BucketPeriod[]
+  bucketAllocations BucketAllocation[]
 }
 
 model ExpenseCategory {
-  id            String    @id @default(uuid())
-  title         String    @db.VarChar(32)
-  description   String?   @db.VarChar(128)
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  expenses      Expense[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  title       String    @db.VarChar(32)
+  description String?   @db.VarChar(128)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  expenses    Expense[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([title, userId])
   @@index([userId])
 }
 
 model Expense {
-  id            String            @id @default(uuid())
-  title         String            @db.VarChar(32)
-  description   String?           @db.VarChar(256)
-  amount        Decimal           @db.Decimal(12, 2)
-  userId        String
-  user          User              @relation(fields: [userId], references: [id])
-  categoryId    String?
-  category      ExpenseCategory?  @relation(fields: [categoryId], references: [id])
-  date          DateTime          @default(now()) @db.Date
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id          String           @id @default(uuid())
+  title       String           @db.VarChar(32)
+  description String?          @db.VarChar(256)
+  amount      Decimal          @db.Decimal(12, 2)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  categoryId  String?
+  category    ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  // Optional charge against a budget bucket. Bucket spend is derived by summing these rows,
+  // so there is no denormalised counter that can drift from the expense table.
+  bucketId    String?
+  bucket      BudgetBucket?    @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  date        DateTime         @default(now()) @db.Date
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model AssetCategory {
@@ -73,15 +110,175 @@ model AssetCategory {
 }
 
 model Asset {
-  id         String          @id @default(uuid())
-  title      String          @db.VarChar(32)
-  amount     Decimal         @db.Decimal(12, 2)
-  isCash     Boolean         @default(false)
+  id         String         @id @default(uuid())
+  title      String         @db.VarChar(32)
+  amount     Decimal        @db.Decimal(12, 2)
+  isCash     Boolean        @default(false)
   userId     String
-  user       User            @relation(fields: [userId], references: [id])
+  user       User           @relation(fields: [userId], references: [id])
   categoryId String?
-  category   AssetCategory?  @relation(fields: [categoryId], references: [id])
-  date       DateTime        @default(now()) @db.Date
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  category   AssetCategory? @relation(fields: [categoryId], references: [id])
+  date       DateTime       @default(now()) @db.Date
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1 — Earnings
+// ---------------------------------------------------------------------------
+
+/// A recurring income rule. Occurrences are NOT stored here: future ones are computed by
+/// `src/lib/recurrence.ts`, and each one materialises into an `Earning` row once its date passes.
+model EarningRule {
+  id                      String           @id @default(uuid())
+  title                   String           @db.VarChar(32)
+  description             String?          @db.VarChar(256)
+  /// Taxes are entered by hand for now — there is deliberately no deduction model.
+  grossAmount             Decimal          @db.Decimal(12, 2)
+  netAmount               Decimal          @db.Decimal(12, 2)
+  frequency               EarningFrequency
+  /// The first occurrence, and the date the money HITS THE ACCOUNT (not the period worked).
+  anchorDate              DateTime         @db.Date
+  /// SEMI_MONTHLY only: the second pay day of each month. `anchorDate`'s day is the first.
+  secondDayOfMonth        Int?
+  endDate                 DateTime?        @db.Date
+  isActive                Boolean          @default(true)
+  /// Catch-up watermark: the last date the materialiser has swept through. This is what lets a
+  /// launch-time checker (a later feature) know which slots it still owes after the app was off.
+  lastMaterializedThrough DateTime?        @db.Date
+
+  userId     String
+  user       User               @relation(fields: [userId], references: [id])
+  earnings   Earning[]
+  exceptions EarningException[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+/// A materialised occurrence, or a standalone/backdated one-off (`ruleId` null).
+model Earning {
+  id            String        @id @default(uuid())
+  title         String        @db.VarChar(32)
+  description   String?       @db.VarChar(256)
+  grossAmount   Decimal       @db.Decimal(12, 2)
+  netAmount     Decimal       @db.Decimal(12, 2)
+  /// The date the money actually hit the account. An override exception moves this.
+  date          DateTime      @db.Date
+  /// Which rule slot this row fills. Kept distinct from `date` so that overriding an
+  /// occurrence's date does not make the projector re-emit the slot. Null for one-offs.
+  scheduledDate DateTime?     @db.Date
+  status        PostingStatus @default(PROJECTED)
+  confirmedAt   DateTime?
+
+  /// SetNull, not Cascade: deleting a rule must not destroy income already posted.
+  ruleId      String?
+  rule        EarningRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  userId      String
+  user        User               @relation(fields: [userId], references: [id])
+  allocations BucketAllocation[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  /// Idempotency for auto-posting: the sweep can run twice and cannot double-post. Postgres
+  /// treats NULLs as distinct, so unlimited one-offs (ruleId null) never collide here.
+  @@unique([ruleId, scheduledDate])
+  @@index([userId, date])
+  @@index([userId, status])
+}
+
+/// Overrides or skips a single future occurrence of a rule. Phase 2 gets a structurally
+/// identical DebtPaymentException for its per-month overridable payment date.
+model EarningException {
+  id            String                    @id @default(uuid())
+  ruleId        String
+  rule          EarningRule               @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  /// The slot being overridden, as the rule would have generated it.
+  scheduledDate DateTime                  @db.Date
+  action        OccurrenceExceptionAction
+  overrideDate  DateTime?                 @db.Date
+  overrideGross Decimal?                  @db.Decimal(12, 2)
+  overrideNet   Decimal?                  @db.Decimal(12, 2)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ruleId, scheduledDate])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1 — Budget allocation
+// ---------------------------------------------------------------------------
+
+/// An envelope. Resets monthly unless `rollover` is set, which is opt-in per bucket so that
+/// fun money accumulates toward larger purchases while everything else starts fresh.
+model BudgetBucket {
+  id              String               @id @default(uuid())
+  title           String               @db.VarChar(32)
+  description     String?              @db.VarChar(128)
+  allocationType  BucketAllocationType @default(PERCENT)
+  /// Percent is stored as a whole number, e.g. 25.00 means 25%.
+  allocationValue Decimal              @db.Decimal(12, 2)
+  rollover        Boolean              @default(false)
+  sortOrder       Int                  @default(0)
+  isActive        Boolean              @default(true)
+
+  userId      String
+  user        User               @relation(fields: [userId], references: [id])
+  periods     BucketPeriod[]
+  allocations BucketAllocation[]
+  expenses    Expense[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([title, userId])
+  @@index([userId])
+}
+
+/// One month of one bucket. `openingBalance` — the rollover carry-in — is the only stored
+/// figure; allocated and spent are derived. Storing it makes closing a month an explicit,
+/// idempotent step, which is what an app that is not always running needs.
+model BucketPeriod {
+  id             String       @id @default(uuid())
+  bucketId       String
+  bucket         BudgetBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  /// Always the first of the month.
+  periodStart    DateTime     @db.Date
+  openingBalance Decimal      @default(0) @db.Decimal(12, 2)
+  closedAt       DateTime?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bucketId, periodStart])
+  @@index([userId, periodStart])
+}
+
+/// Money moved from one confirmed Earning into one bucket.
+///
+/// The `earningId` FK is what enforces "buckets fund from actual income received, never from
+/// projections": a projected occurrence is computed and has no row, so it has no id to
+/// reference. There is no code path that can allocate one.
+model BucketAllocation {
+  id          String       @id @default(uuid())
+  bucketId    String
+  bucket      BudgetBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  earningId   String
+  earning     Earning      @relation(fields: [earningId], references: [id], onDelete: Cascade)
+  amount      Decimal      @db.Decimal(12, 2)
+  periodStart DateTime     @db.Date
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([earningId, bucketId])
+  @@index([userId, periodStart])
+  @@index([bucketId, periodStart])
 }

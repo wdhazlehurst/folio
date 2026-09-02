@@ -90,12 +90,14 @@ export class QuerySerializer<T, Field extends Extract<keyof T, string> = Extract
     for (const [key, fieldOps] of Object.entries(filters) as [string, FilterOpsInput | undefined][]) {
       if (!fieldOps) continue;
 
-      //String handling (Fuzzy and exact)
-      if (fieldOps.contains) {
+      // String handling (fuzzy and exact).
+      // Tested with `!== undefined`, never truthiness: `eq: false` and `eq: 0` are legitimate
+      // filters, and a truthy test silently drops them and returns every row (B17).
+      if (fieldOps.contains !== undefined) {
         where[key] = { contains: fieldOps.contains, mode: "insensitive" };
-      } else if (fieldOps.eq) {
+      } else if (fieldOps.eq !== undefined) {
         where[key] = fieldOps.eq;
-      } else if (fieldOps.in) {
+      } else if (fieldOps.in !== undefined) {
         where[key] = { in: fieldOps.in };
       }
 

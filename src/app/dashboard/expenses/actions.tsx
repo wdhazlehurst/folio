@@ -34,6 +34,7 @@ export async function addExpense(data: Expense): Promise<ActionResult> {
         amount: data.amount,
         userId: userId,
         categoryId: categoryId,
+        bucketId: data.bucketId ?? null,
         date: parsedDate,
       },
     });
@@ -67,6 +68,7 @@ export async function updateExpense(data: Expense): Promise<ActionResult> {
         description: data.description ?? null,
         amount: data.amount,
         categoryId: data.categoryId,
+        bucketId: data.bucketId ?? null,
         date: data.date,
       },
     });
@@ -100,6 +102,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
       category: {
         select: { title: true, id: true }, // Only need the category title
       },
+      bucketId: true,
       date: true,
       userId: true,
     },
@@ -116,6 +119,7 @@ export async function getUserExpenses(): Promise<Expense[]> {
     amount: e.amount.toNumber(),
     category: e.category?.title ?? "N/A",
     categoryId: e.category?.id ?? null,
+    bucketId: e.bucketId,
     date: e.date,
     userId: e.userId,
   }));

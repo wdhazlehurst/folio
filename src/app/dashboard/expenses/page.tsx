@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Stack, Button, Group, Text, Title, Alert, Skeleton } from "@mantine/core";
 import { addExpense, getUserExpenses, updateExpense, expenseApi } from "@/app/dashboard/expenses/actions";
 import { getUserExpenseCategories } from "./categories/actions";
+import { getBucketOptions } from "../budget/actions";
 import { Expense, ExpenseCategory } from "@/types/expense";
 import ExpenseTable from "./ExpenseTable";
 import CategoryManager from "./categories/ExpenseCategoryForm";
@@ -12,15 +13,21 @@ import NewExpenseForm, { type NewExpenseFormValues } from "./NewExpenseForm";
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [buckets, setBuckets] = useState<{ value: string; label: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
   const refreshData = useCallback(async () => {
     try {
-      const [categoriesData, expensesData] = await Promise.all([getUserExpenseCategories(), getUserExpenses()]);
+      const [categoriesData, expensesData, bucketsData] = await Promise.all([
+        getUserExpenseCategories(),
+        getUserExpenses(),
+        getBucketOptions(),
+      ]);
       setCategories(categoriesData);
       setExpenses(expensesData);
+      setBuckets(bucketsData);
     } catch (error) {
       setError("Failed to load data");
       console.error(error);
@@ -101,6 +108,7 @@ export default function ExpensesPage() {
         <Title order={2}>Expenses</Title>
         <NewExpenseForm
           categories={categories.map((c) => ({ value: c.id, label: c.title }))}
+          buckets={buckets}
           onSubmit={handleAddExpense}
           onUpdate={refreshData}
         />

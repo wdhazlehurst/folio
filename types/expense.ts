@@ -9,6 +9,8 @@ export const ExpenseSchema = z.object({
   // Prisma's Expense.categoryId is optional, and getUserExpenses returns null for uncategorised
   // rows — mirrors AssetSchema.
   categoryId: z.uuid().nullable(),
+  // Optional charge against a budget bucket; bucket spend is derived by summing these.
+  bucketId: z.uuid().nullable().optional(),
   description: z.string().optional(),
   date: z.date(),
 });
@@ -30,6 +32,7 @@ export interface NewExpense {
   amount: number;
   category: string;
   description?: string;
+  bucketId?: string | null;
   date: string;
 }
 
