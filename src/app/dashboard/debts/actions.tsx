@@ -616,6 +616,55 @@ export async function deleteDebtPayment(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Corrects a posted payment's amount or date.
+ *
+ * The manual override for a figure that has already moved money: the lender took a different
+ * amount than expected, or on a different day. Everything the posting touched is reconciled by
+ * the difference — the debt balance and the generated expense — so nothing is left disagreeing.
+ *
+ * Allowed on CONFIRMED rows on purpose, since the usual reason to need this is discovering
+ * afterwards that the real figure differed. Cancelled rows are refused: they moved no money, so
+ * there is nothing to correct.
+ */
+export async function updateDebtPayment(id: string, amount: number, date: Date): Promise<ActionResult> {
+  const userId = await requireUserId();
+
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "A payment must be more than zero" };
+
+  const payment = await dbClient.debtPayment.findFirst({ where: { id, userId } });
+  if (!payment) return { ok: false, error: "Payment not found" };
+  if (payment.status === PostingStatus.CANCELLED) {
+    return { ok: false, error: "This payment was cancelled — it moved no money to correct" };
+  }
+
+  const newAmount = roundCents(amount);
+  const day = toUtcDay(date);
+  // A bigger payment lowers the balance further, so the delta is subtracted, not added.
+  const delta = roundCents(newAmount - payment.amount.toNumber());
+
+  try {
+    await dbClient.$transaction(async (tx) => {
+      await tx.debtPayment.update({ where: { id: payment.id }, data: { amount: newAmount, date: day } });
+
+      if (payment.expenseId) {
+        await tx.expense.updateMany({
+          where: { id: payment.expenseId, userId },
+          data: { amount: newAmount, date: day },
+        });
+      }
+
+      if (payment.debtId && delta !== 0) {
+        await tx.debt.update({ where: { id: payment.debtId }, data: { balance: { decrement: delta } } });
+      }
+    });
+  } catch (error) {
+    console.error(`Error updating debt payment: ${error}`);
+    return { ok: false, error: "Could not update the payment" };
+  }
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Projection + exceptions
 // ---------------------------------------------------------------------------

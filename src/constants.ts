@@ -36,3 +36,14 @@ export const BUCKET_WARNING_RATIO = 0.2;
 
 /** How far ahead `/dashboard/debts` projects unmaterialised payments. */
 export const DEBTS_PROJECTION_HORIZON_DAYS = 90;
+
+// --- Phase 3: investments ---
+
+/** How far ahead `/dashboard/investments` projects unmaterialised contributions. */
+export const INVESTMENTS_PROJECTION_HORIZON_DAYS = 90;
+
+/** Months of history the net-worth trend covers by default. */
+export const NET_WORTH_TREND_MONTHS = 6;
+
+/** A contribution limit turns yellow once this fraction of the year's room is used. */
+export const LIMIT_WARNING_RATIO = 0.9;

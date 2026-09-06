@@ -6,7 +6,7 @@ import { dbClient } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 import { QuerySerializer } from "@/lib/query-builder";
 import { BUDGET_BUCKET_QUERY_FIELDS, type BudgetBucketQueryField } from "@/lib/query-fields";
-import { monthStartUtc, nextMonthStartUtc, todayUtc } from "@/lib/dates";
+import { monthStartUtc, nextMonthStartUtc, todayUtc, toUtcDay } from "@/lib/dates";
 import { BUCKET_WARNING_RATIO } from "@/constants";
 import type { ActionResult } from "@/types/api";
 import {
@@ -427,6 +427,42 @@ export async function bucketApi(query: unknown) {
 }
 
 /** Lightweight bucket list for select inputs elsewhere (e.g. the expense form). */
+/**
+ * Overrides a bucket period's opening balance — the rollover carry-in.
+ *
+ * That figure is normally computed when the previous month is closed, and it is the one stored
+ * number the owner cannot otherwise reach. This exists for when the computed carry-in does not
+ * match reality: a month closed while a refund was in flight, or a correction made after the
+ * fact. Creates the period if it does not exist yet, so a correction never depends on having
+ * visited the page first.
+ */
+export async function setBucketOpeningBalance(
+  bucketId: string,
+  periodStart: Date,
+  openingBalance: number
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+
+  if (!Number.isFinite(openingBalance)) return { ok: false, error: "That is not a valid amount" };
+
+  const bucket = await dbClient.budgetBucket.findFirst({ where: { id: bucketId, userId }, select: { id: true } });
+  if (!bucket) return { ok: false, error: "Bucket not found" };
+
+  const start = monthStartUtc(toUtcDay(periodStart));
+
+  try {
+    await dbClient.bucketPeriod.upsert({
+      where: { bucketId_periodStart: { bucketId, periodStart: start } },
+      create: { bucketId, periodStart: start, openingBalance, userId },
+      update: { openingBalance },
+    });
+  } catch (error) {
+    console.error(`Error setting opening balance: ${error}`);
+    return { ok: false, error: "Could not set the opening balance" };
+  }
+  return { ok: true };
+}
+
 export async function getBucketOptions(): Promise<{ value: string; label: string }[]> {
   const userId = await requireUserId();
 

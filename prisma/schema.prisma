@@ -46,60 +46,119 @@ enum BucketAllocationType {
   FIXED
 }
 
+/// The account types the owner actually holds or plans to. `OTHER` is the escape hatch so an
+/// unanticipated account can be entered without a migration. Contribution limits and employer
+/// match are deliberately not modelled here — see the Phase 3 scope limit in `CURRENT.md`.
+enum InvestmentAccountType {
+  HSA
+  ROTH_IRA
+  TRADITIONAL_IRA
+  FOUR_ZERO_ONE_K
+  SAVINGS
+  OTHER
+}
+
+/// What a contribution actually was. This is not cosmetic: only `EMPLOYEE` money counts against
+/// your personal annual limit. Employer match has its own separate cap, a rollover is moving
+/// money you already had and counts against nothing, and a withdrawal takes money out — it does
+/// **not** give back contribution room, which is the rule people most often get wrong.
+enum ContributionKind {
+  EMPLOYEE
+  EMPLOYER_MATCH
+  ROLLOVER
+  WITHDRAWAL
+}
+
+/// Which annual cap an account draws on. Accounts do NOT each get their own limit — a Roth IRA
+/// and a Traditional IRA share one combined IRA limit between them, so the limit attaches to the
+/// group, never to the individual account. `NONE` covers plain savings and anything
+/// uncategorised, which are unlimited.
+enum ContributionLimitGroup {
+  IRA
+  EMPLOYER_PLAN
+  HSA
+  NONE
+}
+
+/// HSA limits depend on whether the health plan covers you alone or a family, and the family
+/// figure is roughly double. Set on the account so the right limit row is picked.
+enum HsaCoverage {
+  SELF_ONLY
+  FAMILY
+}
+
+/// Distinguishes limit rows within a group. Non-null with a default on purpose: Postgres treats
+/// NULLs as distinct, so a nullable discriminator would let duplicate limit rows slip past the
+/// unique constraint.
+enum ContributionLimitVariant {
+  STANDARD
+  HSA_SELF_ONLY
+  HSA_FAMILY
+}
+
 model User {
-  id                String                 @id @default(uuid())
-  email             String                 @unique
-  password          String
-  role              Role                   @default(USER)
-  expenses          Expense[]
-  expenseCategories ExpenseCategory[]
-  assets            Asset[]
-  assetCategories   AssetCategory[]
-  earningRules      EarningRule[]
-  earnings          Earning[]
-  earningExceptions EarningException[]
-  budgetBuckets     BudgetBucket[]
-  bucketPeriods     BucketPeriod[]
-  bucketAllocations BucketAllocation[]
-  debts             Debt[]
-  debtPayments      DebtPayment[]
-  debtExceptions    DebtPaymentException[]
+  id                   String                            @id @default(uuid())
+  email                String                            @unique
+  password             String
+  role                 Role                              @default(USER)
+  expenses             Expense[]
+  expenseCategories    ExpenseCategory[]
+  assets               Asset[]
+  assetCategories      AssetCategory[]
+  earningRules         EarningRule[]
+  earnings             Earning[]
+  earningExceptions    EarningException[]
+  budgetBuckets        BudgetBucket[]
+  bucketPeriods        BucketPeriod[]
+  bucketAllocations    BucketAllocation[]
+  debts                Debt[]
+  debtPayments         DebtPayment[]
+  debtExceptions       DebtPaymentException[]
+  investments          Investment[]
+  contributions        InvestmentContribution[]
+  investmentExceptions InvestmentContributionException[]
+  investmentSnapshots  InvestmentSnapshot[]
+  contributionLimits   ContributionLimit[]
 }
 
 model ExpenseCategory {
-  id          String    @id @default(uuid())
-  title       String    @db.VarChar(32)
-  description String?   @db.VarChar(128)
+  id          String       @id @default(uuid())
+  title       String       @db.VarChar(32)
+  description String?      @db.VarChar(128)
   userId      String
-  user        User      @relation(fields: [userId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
   expenses    Expense[]
   debts       Debt[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  investments Investment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@unique([title, userId])
   @@index([userId])
 }
 
 model Expense {
-  id          String           @id @default(uuid())
-  title       String           @db.VarChar(32)
-  description String?          @db.VarChar(256)
-  amount      Decimal          @db.Decimal(12, 2)
-  userId      String
-  user        User             @relation(fields: [userId], references: [id])
-  categoryId  String?
-  category    ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  id           String                  @id @default(uuid())
+  title        String                  @db.VarChar(32)
+  description  String?                 @db.VarChar(256)
+  amount       Decimal                 @db.Decimal(12, 2)
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id])
+  categoryId   String?
+  category     ExpenseCategory?        @relation(fields: [categoryId], references: [id])
   // Optional charge against a budget bucket. Bucket spend is derived by summing these rows,
   // so there is no denormalised counter that can drift from the expense table.
-  bucketId    String?
-  bucket      BudgetBucket?    @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  bucketId     String?
+  bucket       BudgetBucket?           @relation(fields: [bucketId], references: [id], onDelete: SetNull)
   /// Set when this expense was generated by a posted debt payment. Money leaving the account is
   /// an expense, so a debt payment writes one of these as well as decrementing the balance.
-  debtPayment DebtPayment?
-  date        DateTime         @default(now()) @db.Date
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  debtPayment  DebtPayment?
+  /// Set when this expense was generated by a posted investment contribution. Only accounts
+  /// funded from the checking account write one; a pre-tax deferral is not an expense.
+  contribution InvestmentContribution?
+  date         DateTime                @default(now()) @db.Date
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 }
 
 model AssetCategory {
@@ -240,6 +299,7 @@ model BudgetBucket {
   allocations BucketAllocation[]
   expenses    Expense[]
   debts       Debt[]
+  investments Investment[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -400,4 +460,219 @@ model DebtPaymentException {
 
   @@unique([debtId, scheduledDate])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Investments
+// ---------------------------------------------------------------------------
+
+/// An investment or savings account — HSA, Roth IRA, Traditional IRA, 401k, plain savings.
+///
+/// Deliberately separate from `Asset`, which keeps holding flat non-investment holdings. Net
+/// worth is Assets + Investments − Debts summed across three tables, and nothing writes into
+/// `Asset` when a contribution posts, so there is nothing to double-count.
+///
+/// Contributions recur exactly as earnings and debt payments do: the schedule is expanded from
+/// `anchorDate` by `src/lib/recurrence.ts` — the same pure module, no third implementation — and
+/// each slot materialises into an `InvestmentContribution` once its date passes.
+///
+/// Deliberately absent, per the Phase 3 scope limit: contribution limits, employer match, and
+/// assumed rate of return. Those are in `CURRENT.md` § Long term goals, not here.
+model Investment {
+  id          String                @id @default(uuid())
+  title       String                @db.VarChar(32)
+  description String?               @db.VarChar(256)
+  accountType InvestmentAccountType
+  /// Where the account is held, e.g. "Fidelity". Display only; nothing keys off it.
+  institution String?               @db.VarChar(64)
+  /// What the account is worth now. Contributions move it; market growth is entered by hand as a
+  /// balance correction, which also writes a snapshot.
+  balance     Decimal               @db.Decimal(12, 2)
+
+  /// What goes in each time the schedule fires. Zero is allowed on purpose — an account can be
+  /// tracked for its balance alone, with no recurring contribution.
+  contributionAmount      Decimal          @default(0) @db.Decimal(12, 2)
+  /// The full set of cadences, unlike `Debt`: a 401k deferral lands per paycheck, so it needs the
+  /// same BIWEEKLY/SEMI_MONTHLY options an `EarningRule` has.
+  frequency               EarningFrequency @default(MONTHLY)
+  /// The first contribution date. Weekly and biweekly step from it; monthly repeats its day.
+  anchorDate              DateTime         @db.Date
+  /// SEMI_MONTHLY only, exactly as on `EarningRule` — the second contribution day of the month.
+  secondDayOfMonth        Int?
+  endDate                 DateTime?        @db.Date
+  isActive                Boolean          @default(true)
+  /// Catch-up watermark, as on `EarningRule` and `Debt` — the last date the materialiser swept.
+  lastMaterializedThrough DateTime?        @db.Date
+
+  /// Expected annual return, as a whole percent — 7.0000 means 7%. Nothing compounds it today;
+  /// it is stored for the projection work, and it is per account because an HSA held in cash, a
+  /// 401(k) index fund and a savings APY are nothing like each other.
+  assumedReturnRate Decimal? @db.Decimal(6, 4)
+
+  /// HSA only: whether the health plan covers you alone or a family. Picks which limit row
+  /// applies, since the family cap is roughly double the self-only one.
+  hsaCoverage HsaCoverage?
+
+  /// Employer match, in the shape plans actually state it: "we match `employerMatchPercent` of
+  /// what you put in, on up to `employerMatchLimitPercent` of your pay". So 50% on up to 6% is
+  /// `50` and `6`. `annualSalary` is what turns that percentage into dollars; it lives here
+  /// rather than on `User` because the match belongs to one employer's plan, and it is editable
+  /// so a raise or a bonus year can be corrected by hand.
+  ///
+  /// Contributing less than the match threshold is leaving money on the table, which is what
+  /// `belowMatchThreshold` on the view exists to say out loud.
+  employerMatchPercent      Decimal? @db.Decimal(6, 4)
+  employerMatchLimitPercent Decimal? @db.Decimal(6, 4)
+  annualSalary              Decimal? @db.Decimal(12, 2)
+
+  /// Set these only when the contribution actually leaves the checking account — a Roth funded
+  /// from savings, say. A posted contribution then writes an `Expense` carrying both, and that is
+  /// the whole of the budget wiring: bucket spend is derived by summing expenses, so the
+  /// contribution reaches its bucket with no second counter to drift. Left null — a pre-tax 401k
+  /// deferral, which never hits the account — no expense is written at all.
+  bucketId   String?
+  bucket     BudgetBucket?    @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  userId        String
+  user          User                              @relation(fields: [userId], references: [id])
+  contributions InvestmentContribution[]
+  exceptions    InvestmentContributionException[]
+  snapshots     InvestmentSnapshot[]
+  createdAt     DateTime                          @default(now())
+  updatedAt     DateTime                          @updatedAt
+
+  @@index([userId])
+}
+
+/// A materialised contribution, or a manually recorded one-off (`scheduledDate` null).
+///
+/// Posting one is a single transaction: this row, `Investment.balance += amount`, a snapshot for
+/// the day, and — only when the account is funded from the checking account — an `Expense`.
+/// Cancelling reverses all of it; the row survives as CANCELLED for audit and to stop the next
+/// sweep re-posting the slot.
+model InvestmentContribution {
+  id            String           @id @default(uuid())
+  /// Always positive. `kind` says which way the money went — a WITHDRAWAL of 500 lowers the
+  /// balance by 500 rather than being stored as -500, so sums stay readable.
+  amount        Decimal          @db.Decimal(12, 2)
+  /// Employee money, employer match, a rollover in, or a withdrawal out. Only EMPLOYEE counts
+  /// against your annual limit.
+  kind          ContributionKind @default(EMPLOYEE)
+  date          DateTime         @db.Date
+  /// The slot this fills, kept distinct from `date` so an override cannot make the projector
+  /// re-emit it. Null for a manually recorded contribution.
+  scheduledDate DateTime?        @db.Date
+  status        PostingStatus    @default(PROJECTED)
+  confirmedAt   DateTime?
+
+  /// SetNull, not Cascade: deleting an account must not destroy the record of what was paid in.
+  investmentId         String?
+  investment           Investment?             @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  /// Set on an EMPLOYER_MATCH row: the employee contribution that earned it. Cancelling or
+  /// deleting the source reverses the match along with it — a match that was never earned must
+  /// not be left sitting in the balance. `@unique` makes it one match per contribution.
+  sourceContributionId String?                 @unique
+  sourceContribution   InvestmentContribution? @relation("ContributionMatch", fields: [sourceContributionId], references: [id], onDelete: Cascade)
+  matchContribution    InvestmentContribution? @relation("ContributionMatch")
+
+  /// The expense this contribution generated, when the money came out of the account. Null for a
+  /// pre-tax deferral, which is not an expense at all.
+  expenseId String?  @unique
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Idempotency for auto-posting, as on `Earning` and `DebtPayment`. Postgres treats NULLs as
+  /// distinct, so unlimited manual contributions never collide here.
+  @@unique([investmentId, scheduledDate])
+  @@index([userId, date])
+  @@index([userId, status])
+}
+
+/// Overrides or skips a single future contribution. Structurally identical to
+/// `EarningException` and `DebtPaymentException` — one mechanism, three features.
+model InvestmentContributionException {
+  id             String                    @id @default(uuid())
+  investmentId   String
+  investment     Investment                @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  /// The slot being overridden, as the schedule would have generated it.
+  scheduledDate  DateTime                  @db.Date
+  action         OccurrenceExceptionAction
+  overrideDate   DateTime?                 @db.Date
+  overrideAmount Decimal?                  @db.Decimal(12, 2)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([investmentId, scheduledDate])
+  @@index([userId])
+}
+
+/// The balance of one account on one day.
+///
+/// This is the design decision that account balances are "a current balance **plus** a snapshot
+/// history": `Investment.balance` answers "what do I have", these answer "what did I have then",
+/// and the net-worth-over-time chart reads them. Without it, growth that arrived through the
+/// market rather than through a contribution would leave no trace in history.
+///
+/// One row per account per day — a later change on the same day overwrites it, so the snapshot
+/// is the closing figure for that day rather than a log of every intraday edit.
+model InvestmentSnapshot {
+  id           String     @id @default(uuid())
+  investmentId String
+  investment   Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  date         DateTime   @db.Date
+  balance      Decimal    @db.Decimal(12, 2)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([investmentId, date])
+  @@index([userId, date])
+}
+
+/// One year's contribution cap for one group of accounts.
+///
+/// **Configurable, never hardcoded** — the IRS restates these every year, so they are rows the
+/// owner edits rather than constants in the source. Nothing ships with figures baked in; an
+/// unentered year simply reports "no limit set" instead of quietly assuming a stale number.
+///
+/// The limit attaches to a `ContributionLimitGroup`, not to an account, because that is how the
+/// rules actually work: a Roth IRA and a Traditional IRA share one combined annual limit between
+/// them. Modelling it per account would tell you that you have twice the room you really do, and
+/// over-contributing carries a penalty that repeats every year until it is corrected.
+model ContributionLimit {
+  id                  String                   @id @default(uuid())
+  /// Calendar year the cap applies to.
+  year                Int
+  group               ContributionLimitGroup
+  variant             ContributionLimitVariant @default(STANDARD)
+  /// What YOU may put in across the group this year. Employer money is not counted against it.
+  limit               Decimal                  @db.Decimal(12, 2)
+  /// EMPLOYER_PLAN only: the larger cap on employee **plus** employer money combined. Null for
+  /// groups that have no such second figure.
+  totalAdditionsLimit Decimal?                 @db.Decimal(12, 2)
+
+  /// Manual override, and deliberately signed. Year-to-date contributions are derived by summing
+  /// rows, which is right until reality is not: money paid into a previous employer's plan
+  /// earlier the same year, an account opened before Folio was used, a correction from the
+  /// custodian. Positive adds to the computed total, negative takes off it. Nothing else can
+  /// make a derived figure match a statement.
+  contributedAdjustment Decimal @default(0) @db.Decimal(12, 2)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, year, group, variant])
+  @@index([userId, year])
 }

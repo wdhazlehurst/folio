@@ -142,13 +142,14 @@ live next to their component instead.
 ### `prisma/`
 
 - `schema.prisma` — datasource `postgresql`, generator `prisma-client-js`. Models below.
-- `migrations/` — 9 migrations, latest `20260902232410_phase2_debts`.
+- `migrations/` — 12 migrations, latest `20260906224500_phase3c_match_source_link`.
 
 **Data model** (all IDs are `uuid` strings; money is `@db.Decimal(12, 2)` → Prisma `Decimal`; `date` is `@db.Date`):
 
 ```
 User            id, email(unique), password(bcrypt), role(Role enum: USER|ADMIN|MODERATOR)
-                → expenses[], expenseCategories[], assets[], assetCategories[]
+                → expenses[], expenseCategories[], assets[], assetCategories[], and a
+                  back-reference per model added by Phases 1-3
 
 ExpenseCategory id, title(≤32), description?(≤128), userId, createdAt, updatedAt
                 @@unique([title, userId])  @@index([userId])
@@ -204,13 +205,51 @@ and `categoryId`, links it via `expenseId`, and decrements `Debt.balance`. Becau
 derived by summing expenses, debt payments land in the bucket with no second counter to drift. The
 amount is capped at the remaining balance, so the final payment pays the debt to exactly zero.
 
+**Phase 3 — investments** (new enums: `InvestmentAccountType` HSA|ROTH_IRA|TRADITIONAL_IRA|
+FOUR_ZERO_ONE_K|SAVINGS|OTHER · `ContributionKind` EMPLOYEE|EMPLOYER_MATCH|ROLLOVER|WITHDRAWAL ·
+`ContributionLimitGroup` IRA|EMPLOYER_PLAN|HSA|NONE · `HsaCoverage` · `ContributionLimitVariant`.
+`PostingStatus`, `EarningFrequency` and `OccurrenceExceptionAction` are reused again):
+
+```
+Investment             accountType, institution?, balance, contributionAmount, frequency (the FULL
+                       set, unlike Debt — a 401k deferral lands per paycheck), anchorDate,
+                       secondDayOfMonth?, endDate?, isActive, lastMaterializedThrough watermark,
+                       assumedReturnRate?, hsaCoverage?, employerMatchPercent?,
+                       employerMatchLimitPercent?, annualSalary?, bucketId?, categoryId?
+InvestmentContribution mirrors DebtPayment: amount (always positive), kind, date, scheduledDate?,
+                       status, expenseId? @unique, sourceContributionId? @unique (self-relation:
+                       an EMPLOYER_MATCH row points at the contribution that earned it)
+                       @@unique([investmentId, scheduledDate])
+InvestmentContributionException   structurally identical to EarningException / DebtPaymentException
+InvestmentSnapshot     balance of one account on one day. @@unique([investmentId, date])
+ContributionLimit      year, group, variant, limit, totalAdditionsLimit?, contributedAdjustment
+                       @@unique([userId, year, group, variant])
+```
+
+**Things that are easy to get wrong here, and how the schema prevents them:**
+
+- **`bucketId`/`categoryId` mean "this money leaves my checking account."** Set them and a posted
+  contribution writes an `Expense`; leave them null (a pre-tax 401k deferral, which never hits the
+  account) and none is written. That is the entire gate — there is no separate flag.
+- **Only `EMPLOYEE` money uses annual contribution room.** Employer match has its own cap, a
+  rollover is money you already had, and a **withdrawal does not give room back**.
+  `countsTowardPersonalLimit` in `src/lib/contribution-limits.ts` is the single place that decides.
+- **Limits attach to a *group*, not an account.** A Roth IRA and a Traditional IRA share one
+  combined cap; modelling it per account would report twice the room that exists.
+- **No IRS figures are hardcoded anywhere.** `ContributionLimit` rows are entered by the owner; a
+  year with no row reports "no limit set" rather than assuming a stale number.
+- **`amount` is always positive**; `kind` supplies the direction via `balanceDirection`.
+- **Net worth = Assets + Investments − Debts**, in `summary-db.ts`. `InvestmentSnapshot` is what
+  makes the historical version possible — growth that arrives through the market rather than a
+  contribution leaves no other trace.
+
 **Behaviour worth knowing:** a scheduled slot passed over because the balance was exhausted is *not*
 permanently skipped — if the balance later rises (a cancellation, or a manual correction), that
 payment posts. Deliberate: losing it silently would be worse. The materialiser's lookback bounds how
 far back this can reach.
 
-Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expense has **no**
-`description` column despite the type allowing one (see `OVERVIEW.md`).
+Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Both carry a
+`description` (Phase 0 added Expense's).
 
 ### `types/` (root-level, `@/types/*`)
 
@@ -221,6 +260,7 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `asset.ts`        | Same shape for assets: `AssetSchema`, `AssetCategorySchema`, `NewAsset`, `NewAssetCategory`.        |
 | `earning.ts`      | Zod schemas + view types for `EarningRule`/`Earning`/exceptions (`NewEarningRule`, `NewEarning`, `EarningRuleView`, `EarningView`, `ProjectedOccurrenceView`, `IncomeAverage`). |
 | `debt.ts`         | Zod schemas + view types for debts and payments (`NewDebt`, `DebtView`, `DebtPaymentView`, `ProjectedDebtPaymentView`, `RecordDebtPaymentSchema`). |
+| `investment.ts`   | Zod schemas + view types for investments (`NewInvestment`, `InvestmentView`, `ContributionView`, `ProjectedContributionView`, `ContributionLimitView`, `ContributionUsage`), plus `ACCOUNT_TYPE_LABELS`/`ACCOUNT_TYPE_ORDER`. |
 | `budget.ts`       | Zod schemas + view types for buckets (`NewBucket`, `BucketView`, `BucketHealth` = ok\|warning\|overdrawn, `AllocateEarningInput`). |
 | `next-auth.d.ts`  | Augments NextAuth `User`/`Session`/`JWT` with `id`, `email`, `role`.                                |
 | `types.d.ts`      | Older, conflicting NextAuth `User` augmentation. Effectively dead (see OVERVIEW). Not typechecked because of `skipLibCheck`. |
@@ -236,7 +276,8 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `schemas.ts`       | `emailSchema`, `passwordSchema` (6+ chars w/ complexity rules, or 16+ char passphrase), `registerSchema`, `PaginationSchema`, a `.strict()` `FilterOpsSchema` (unknown operators rejected), and **`makeQueryInputSchema(allowedFields)`** — a factory binding a query schema to one model's field allowlist. |
 | `query-builder.ts` | `QuerySerializer<T, Field>` class — validates raw input against the model's allowlist, `transform()` returns Prisma args (`where`/`orderBy`/`take`/`skip`); `pageInfo` getter exposes the effective page/limit. `parseFilters` maps `contains/eq/in`, `min/max`→`gte/lte`, `before/after`→`lt/gt`. **`userId` is forced into `where` *after* the filter spread — that is the tenancy boundary; never move it.** |
 | `query-fields.ts`  | Per-model field allowlists (`EXPENSE_QUERY_FIELDS`, `ASSET_QUERY_FIELDS`, + both category models), typed `Extract<keyof T, string>` so a typo is a compile error. **A field is only queryable if listed here.** |
-| `recurrence.ts`    | **Pure** occurrence expansion for recurring rules — no Prisma, no `Decimal`. One implementation serves projection (today → horizon, computed), materialisation (watermark → today, written), and the future catch-up checker, so the UI and the writer can never disagree about when a rule fires. Phase 2's debt schedule reuses it. |
+| `recurrence.ts`    | **Pure** occurrence expansion for recurring rules — no Prisma, no `Decimal`. One implementation serves projection (today → horizon, computed), materialisation (watermark → today, written), and the future catch-up checker, so the UI and the writer can never disagree about when a rule fires. Phase 2's debt schedule and Phase 3's contribution schedule both reuse it. Also exports `FREQUENCY_LABELS` and `OCCURRENCES_PER_MONTH` (advisory monthly normalisation). |
+| `contribution-limits.ts` | **Pure** contribution-limit and employer-match rules — no Prisma, no `Decimal`, same reasoning as `recurrence.ts`. `LIMIT_GROUP_BY_ACCOUNT_TYPE` (both IRA types map to one group), `limitVariantFor`, `countsTowardPersonalLimit`, `balanceDirection`, `writesExpense`, `matchPlanFor`, `matchForContribution`. **Deliberately contains no IRS amounts** — those are `ContributionLimit` rows the owner enters. |
 | `dates.ts`         | UTC date helpers. `@db.Date` round-trips as UTC midnight; local-time accessors (`getMonth`, `setDate`) shift the day for anyone west of UTC and silently move pay dates. **Use these anywhere a `@db.Date` is involved.** |
 | `format.ts`        | `formatCurrency`, `formatDay` — shared display formatting. `formatDay` forces `timeZone: "UTC"` for the reason above. |
 | `zodMantine.ts`    | `zodValidate(schema)` → Mantine `useForm` `validate` function (first error per field).                                     |
@@ -254,6 +295,11 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 
 `DEFAULT_USER_ROLE`, `ADMIN_USER_ROLE`, `INVALID_INPUT_ERROR`, `SALT_ROUNDS` (10),
 `DEFAULT_PAGINATION` (50), `MAX_PAGINATION` (1000).
+
+Per-phase blocks follow: `EARNINGS_PROJECTION_HORIZON_DAYS`, `ROLLING_AVERAGE_WINDOWS`,
+`DAYS_PER_MONTH`, `MIN_AVERAGE_COVERAGE_DAYS`, `BUCKET_WARNING_RATIO` (Phase 1);
+`DEBTS_PROJECTION_HORIZON_DAYS` (Phase 2); `INVESTMENTS_PROJECTION_HORIZON_DAYS`,
+`NET_WORTH_TREND_MONTHS`, `LIMIT_WARNING_RATIO` (Phase 3).
 
 ### `src/app/` — routes
 
@@ -285,7 +331,9 @@ dashboard/debts/           Debts: debt list, payments table, projected-payments 
                            at payoff — the posting rule applied to the display, NOT amortization.
 dashboard/settings/        SettingsPage + DisplayNameSetting(+WithSession) — UI only, no persistence yet
 dashboard/expenses/        expenses CRUD page (see below)
-dashboard/worth/           assets CRUD page (see below)
+dashboard/assets/          assets CRUD page (see below). Renamed from `worth/` in Phase 3.
+dashboard/investments/     Investments: accounts by type, recurring contributions w/ confirm/cancel,
+                           employer match, contribution-room bars, withdrawals and rollovers
 dashboard/_widgets/        dashboard widgets (see below)
 ```
 
@@ -298,6 +346,13 @@ Every function calls `getUserId()` and throws `"Unauthorized"` if absent.
 - `getMonthTotals()` → `{ current, previous, deltaPct }` — this month vs last month expenses.
 - `getMonthlyTrend(months = 6)` → `MonthTotal[]` — expenses bucketed by `"MMM YY"` label.
 - `getMonthlyAssetTrend(months = 6)` → same for assets.
+- `getNetWorth()` → `{ assets, investments, debts, netWorth }` — the three-table sum. Paused
+  accounts and debts are included; pausing stops a schedule, not the money.
+- `getNetWorthTrend(months = 6)` → `NetWorthPoint[]`. Each part is reconstructed differently:
+  assets are a running total of dated entries, investments come from `InvestmentSnapshot`, and
+  **debts have no snapshot table** so a past balance is rebuilt by adding back non-cancelled
+  payments made since. That last one is exact only while the balance moves through payments — a
+  hand-corrected debt balance shifts the whole reconstructed history.
 - Types `CategorySlice { label, value, percent }`, `MonthTotal { month, total }`, `DashboardSummary`.
 - Bucketing is done in JS with a `Map` keyed by `toLocaleString("default", {month:"short", year:"2-digit"})`.
 
@@ -327,22 +382,37 @@ Every function calls `getUserId()` and throws `"Unauthorized"` if absent.
   `getCategoryByTitle`, `getUserExpenseCategories`. Handles Prisma `P2002` (dup title) explicitly.
 - `categories/ExpenseCategoryForm.tsx` — exported as `CategoryManager`; add + edit categories via Mantine `useForm`.
 
-#### `dashboard/worth/` (assets / net worth)
+#### `dashboard/assets/` (flat asset entries)
 
-Mirrors `expenses/` almost 1:1 — `page.tsx`, `actions.tsx` (`addAsset`, `updateAsset`,
-`getUserAssets`, `assetApi`), `AssetTable.tsx`, `NewAssetForm.tsx`, `categories/actions.tsx`
-(`addAssetCategory`, `updateAssetCategory`, …), `categories/AssetCategoryForm.tsx`.
+**Renamed from `worth/` in Phase 3**, because net worth is now computed from three tables and this
+page holds only flat asset entries. Mirrors `expenses/` almost 1:1 — `page.tsx`, `actions.tsx`
+(`addAsset`, `updateAsset`, `getUserAssets`, `assetApi`), `AssetTable.tsx`, `NewAssetForm.tsx`,
+`categories/actions.tsx` (`addAssetCategory`, `updateAssetCategory`, …),
+`categories/AssetCategoryForm.tsx`.
 
 Asset-specific: `isCash` boolean (rendered as a `Switch`/`Badge`), and `NewAssetForm` has an
 "also add to expenses" toggle that lazily loads expense categories and calls `addExpense` from the
 expenses module — the one cross-module dependency between the two features.
+
+#### `dashboard/investments/`
+
+| File                             | Role                                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| `actions.tsx`                    | Everything server-side: account CRUD, `materializeDueContributions` (posts due slots **and** the employer match they earn, in one transaction), `recordContribution`/`recordRollover`/`recordWithdrawal`, `recordInvestmentBalance`, `updateContribution` (the manual correction), confirm/cancel/delete, projections, exceptions, `saveContributionLimit`/`getContributionUsage`, `investmentApi`. |
+| `page.tsx`                       | `"use client"` page. Auto-posts before loading, same as earnings and debts. Account cards, pending banner, limits card, contributions table, projected table. |
+| `InvestmentForm.tsx`             | Create/edit modal. Match and HSA-coverage fields appear only for the account types they apply to, and the match preview uses the same pure helper the server posts with. |
+| `ContributionLimitsCard.tsx`     | Contribution-room bars per group (green/yellow/red, `unknown` when no limit is set) plus the limit editor, including the signed manual adjustment. |
+| `ContributionsTable.tsx`         | Posted rows with kind badges, confirm/cancel/delete, and the correction modal. |
+| `ProjectedContributionsTable.tsx`| Upcoming slots with skip/override. Contributions only — no assumed growth is compounded in. |
+| `RecordContributionForm.tsx`     | One modal for contribution / rollover in / withdrawal; the page routes to the matching action. |
+| `RecordBalanceForm.tsx`          | Balance correction. A back-dated one fills in history without moving the current balance. |
 
 ### `components/` (root-level, `@/components/*`)
 
 | File                  | Role                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `DashboardShell.tsx`  | Mantine `AppShell` (header 60px, navbar 175px, `md` breakpoint) + framer-motion `AnimatePresence` keyed on pathname. |
-| `DashboardNavbar.tsx` | Nav links: Dashboard, Expenses, Worth, Charts, Settings. Active state via `data-active`. Shows app version from `package.json`. |
+| `DashboardNavbar.tsx` | Nav links: Dashboard, Earnings, Expenses, Budget, Debts, Assets, Investments, Charts, Settings. Active state via `data-active`. Shows app version from `package.json`. |
 | `LoggedInHeader.tsx`  | Title + session email/name + logout + theme toggle.                                                          |
 | `IndexHeader.tsx`     | Public header with Log in / Sign up buttons (`showLogin`/`showSignup` props).                                 |
 | `ThemeToggler.tsx`    | Mantine color-scheme toggle; returns `null` before mount to avoid hydration mismatch.                         |
@@ -375,7 +445,12 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 9. **Every queryable model needs a field allowlist** in `src/lib/query-fields.ts`. `QuerySerializer`
    rejects any `filters`/`sort` key not listed, so arbitrary field names never reach Prisma. Adding a
    model without one means it can't be queried; widening one is a deliberate act.
-10. Formatting is Prettier (120 cols, double quotes, semicolons). Run `npm run prettier` before finishing.
+10. **Any stored figure must be correctable by hand.** Balances, posted payments and contributions,
+    bucket opening balances and derived year-to-date totals all have an override path, because the
+    app models normal conditions and reality sometimes isn't. When adding a computed or posted
+    figure, add the override with it — and make the override reconcile everything the original
+    posting touched (balance, linked expense, snapshot), not just the row itself.
+11. Formatting is Prettier (120 cols, double quotes, semicolons). Run `npm run prettier` before finishing.
 
 ## Fast lookup — "where do I go for…"
 
@@ -394,11 +469,14 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 | Budget buckets / allocation         | `src/app/dashboard/budget/actions.tsx`                     |
 | Validation rules                    | `src/lib/schemas.ts`, `src/lib/validators.ts`              |
 | Expense CRUD                        | `src/app/dashboard/expenses/actions.tsx`                   |
-| Asset CRUD                          | `src/app/dashboard/worth/actions.tsx`                      |
+| Asset CRUD                          | `src/app/dashboard/assets/actions.tsx`                     |
+| Investments / contributions         | `src/app/dashboard/investments/actions.tsx`                |
+| Contribution limits / employer match| `src/lib/contribution-limits.ts` (pure) — never reimplement per feature |
+| Net worth (assets + investments − debts) | `getNetWorth` / `getNetWorthTrend` in `src/app/dashboard/summary-db.ts` |
 
 ## Status
 
-The repo **typechecks and builds** as of 2026-09-03 (Phases 0, 1 and 2 complete). Run `npx prisma generate`
+The repo **typechecks and builds** as of 2026-09-06 (Phases 0-3 complete). Run `npx prisma generate`
 before any typecheck or you'll see ~20 phantom `@prisma/client` errors that aren't real.
 
 Read `CURRENT.md` for what's actively being worked on, the settled design decisions, and known minor

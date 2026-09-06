@@ -7,7 +7,7 @@ bugs not worth a full entry in `OVERVIEW.md`.
 the bottom is archive — skip it unless something there is directly relevant to what you've been asked
 to do.
 
-**Last updated:** 2026-09-03 (Phase 2 complete)
+**Last updated:** 2026-09-06 (Phase 3 complete)
 
 ---
 
@@ -33,9 +33,17 @@ models. Build in this order — each is the foundation for the next.
    asset bumps). Support the major account types as distinct entries — HSA, Roth IRA, Traditional IRA,
    401k, standard savings — each drawing from the same income/allocation pool.
 
-**Scope limit:** don't build Investments in full depth yet. No contribution limits, no employer-match
-tracking, no per-account growth rates. Basic category and data model only — the owner's actual benefit
-elections aren't finalized, so those details are still moving.
+**Scope limit — superseded 2026-09-06.** This originally read "don't build Investments in full depth
+yet. No contribution limits, no employer-match tracking, no per-account growth rates. Basic category
+and data model only." The owner lifted it after Phase 3's basic model landed, and all three were
+built the same day: annual contribution limits with year-to-date room tracking, 401k employer match
+with the below-threshold flag, and a per-account assumed rate of return (stored only — nothing
+compounds it until Projections).
+
+**Still deliberately out of scope:** catch-up contributions at 50+/55+ (deferred by the owner; it
+needs a birth year on `User`), vesting schedules on employer match, the match true-up warning,
+Roth IRA income phase-out (MAGI) eligibility, and prior-year contribution windows. Sliders and
+projection rollups remain in Long term goals.
 
 **Structural requirement:** build these so they *grow into* the Long term goals below rather than get
 rebuilt later. The vision in that section is the design target, not a someday wishlist.
@@ -68,7 +76,29 @@ coupled), then vertical slices for Debts and Investments.
   `expenseId`, and decrements the balance, capped so the final payment lands on exactly zero. Route
   `/dashboard/debts`. Deliberately **not** built: amortization, extra-payment slider, payoff curve,
   avalanche/snowball — those stay in Long term goals.
-- **Phase 3 — Investments.** Basic model only (see Scope limit). Rename the Worth page to Assets here.
+- **Phase 3 — Investments.** ✅ **Complete 2026-09-06** (branch `limit-testing`, uncommitted).
+  Three additive migrations. `Investment`, `InvestmentContribution`, `InvestmentContributionException`,
+  `InvestmentSnapshot`, `ContributionLimit` — with `PostingStatus`/`EarningFrequency`/
+  `OccurrenceExceptionAction` reused for the third time, so earnings, debts and contributions run one
+  posting flow through an unmodified `src/lib/recurrence.ts`. The Worth page **was renamed to Assets**
+  (`git mv`, history preserved) and `/dashboard/investments` added beside it.
+
+  Contributions carry a `kind` (employee / employer match / rollover / withdrawal), and only employee
+  money uses annual room — the rule most easily got wrong. Limits attach to a *group*, so a Roth and a
+  Traditional IRA share one cap; **no IRS figures are hardcoded**, they are rows the owner enters, and
+  an unentered year says "no limit set" rather than assuming one. Employer match posts alongside the
+  contribution that earns it, capped at the year's remaining match, and is reversed with it.
+  `InvestmentSnapshot` gives accounts the balance history the design decisions call for, and
+  `getNetWorth`/`getNetWorthTrend` in `summary-db.ts` compute Assets + Investments − Debts (server
+  actions only — nothing renders them yet).
+
+  At the owner's request, **every stored figure now has a manual override**: `updateContribution`,
+  `updateDebtPayment` (Phase 2) and `setBucketOpeningBalance` (Phase 1) were added, each reconciling
+  the balance, linked expense and snapshot rather than just its own row, plus a signed
+  `contributedAdjustment` for derived year-to-date totals. This is now `INDEX.md` convention 10.
+
+  Verified by calling the real server actions against a scratch database (79 checks, then 81 more
+  including regressions on the rewritten posting path); `folio_dev` untouched throughout.
 
 ### Design decisions — resolved 2026-08-31
 
@@ -204,12 +234,20 @@ the code.
 **Investments**
 
 - Sliders per account type — HSA, Roth IRA, Traditional IRA, 401k, standard savings — all drawing from
-  the same income pool.
-- Enforce/flag annual IRS contribution limits per account type. **Configurable, never hardcoded** —
-  these change yearly.
-- 401k employer-match tracker; flag when contributing below the match threshold.
-- Customizable assumed rate of return per account type (HSA cash vs 401k index fund vs savings APY all
-  differ).
+  the same income pool. *(Accounts and contributions built in Phase 3; the slider UI is not.)*
+- ✅ **Done (Phase 3):** annual contribution limits, flagged as room is used. **Configurable, never
+  hardcoded** — they are `ContributionLimit` rows the owner enters, and a year with no row says "no
+  limit set" rather than assuming one. Limits attach to a group, so a Roth and a Traditional IRA
+  share one cap.
+- ✅ **Done (Phase 3):** 401k employer-match tracker, including the flag for contributing below the
+  match threshold. Match posts alongside the contribution that earns it and is capped at the year's
+  remaining match.
+- ✅ **Done (Phase 3):** customizable assumed rate of return per account. Stored only — nothing
+  compounds it yet; that arrives with Projections.
+- **Still open:** vesting schedules on employer match, the match true-up warning (front-loading can
+  cost you match), Roth IRA income phase-out (MAGI) eligibility, prior-year contribution windows
+  (IRA/HSA contributions before the April deadline can count toward the previous year), and catch-up
+  contributions at 50+/55+ — deferred because it needs a birth year on `User`.
 
 **Projections**
 
@@ -219,7 +257,8 @@ the code.
 
 **Also planned**
 
-- Net worth over time chart (assets − debts).
+- Net worth over time chart (assets + investments − debts). *(The data exists as of Phase 3 —
+  `getNetWorth` and `getNetWorthTrend` in `summary-db.ts`. Nothing renders it yet.)*
 - Emergency fund as its own goal type (target = X months of expenses).
 - Goal-based savings buckets, e.g. a car down payment.
 

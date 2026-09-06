@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Stack, Group, Title, Alert, Skeleton } from "@mantine/core";
-import { addAsset, getUserAssets, updateAsset } from "@/app/dashboard/worth/actions";
+import { addAsset, getUserAssets, updateAsset } from "@/app/dashboard/assets/actions";
 import { getUserAssetCategories } from "./categories/actions";
 import { Asset, AssetCategory } from "@/types/asset";
 import AssetTable from "./AssetTable";
 import AssetCategoryForm from "./categories/AssetCategoryForm";
 import NewAssetForm, { type NewAssetFormValues } from "./NewAssetForm";
 
-export default function WorthPage() {
+export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export default function WorthPage() {
   return (
     <Stack>
       <Group justify="space-between" align="center">
-        <Title order={2}>Worth</Title>
+        <Title order={2}>Assets</Title>
         <NewAssetForm
           categories={categories.map((c) => ({ value: c.id, label: c.title }))}
           onSubmit={handleAddAsset}

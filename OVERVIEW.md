@@ -5,7 +5,7 @@ tick off tasks, add newly found bugs, move fixed items to Recently Resolved.
 
 For the file-by-file map, see `INDEX.md`. For per-session agent notes, see `AGENTHISTORY.md`.
 
-**Last updated:** 2026-09-03 · **Branch:** `fix/b5-b19-tenancy-and-dates` · **Version:** 0.0.1
+**Last updated:** 2026-09-06 · **Branch:** `limit-testing` · **Version:** 0.0.1
 
 ---
 
@@ -43,16 +43,18 @@ the product vision — see `CURRENT.md`.)
 | Auth (register/login/session) | Working. Credentials + JWT, role field present but only `requireRole(["*"])` is used.     |
 | Expenses CRUD                 | Working (add, inline edit, list, description). No delete.                                 |
 | Expense categories            | Working (add, edit). No delete.                                                           |
-| Assets / Worth page           | Working (add, inline edit, list, `isCash`). Newest feature — least exercised.             |
+| Assets page (`/dashboard/assets`) | Working (add, inline edit, list, `isCash`). **Renamed from Worth** in Phase 3.          |
 | Asset categories              | Working (add, edit). No delete.                                                           |
 | Dashboard widgets             | Working: stats bar, category donut, spending bar chart, Unovis expense-vs-asset area chart. Layout persists in `localStorage`. |
 | Earnings (`/dashboard/earnings`) | **New (Phase 1).** Recurring rules, auto-posted occurrences with confirm/cancel, skip+override on projected slots, trailing income averages. |
 | Budget (`/dashboard/budget`)  | **New (Phase 1).** Envelope buckets w/ per-bucket rollover, monthly periods, allocation from confirmed income, green/yellow/red health. |
 | Debts (`/dashboard/debts`)    | **New (Phase 2).** Debts w/ interest rate, minimum + actual payment, scheduled auto-posting that writes a linked Expense and decrements the balance, skip/override, projected schedule capped to payoff. |
+| Investments (`/dashboard/investments`) | **New (Phase 3).** Accounts by type (HSA/IRA/401k/savings), recurring contributions with confirm/cancel, employer match posted alongside the contribution that earns it, contribution-room tracking against owner-entered annual limits, withdrawals and rollovers, balance snapshots. |
+| Net worth                     | **New (Phase 3).** `getNetWorth` / `getNetWorthTrend` in `summary-db.ts` — Assets + Investments − Debts. Server actions only; no widget or chart yet. |
 | Charts page (`/dashboard/charts`) | Stub — renders a title only.                                                          |
 | Settings page                 | UI only. Display name, password change, and delete account do nothing.                    |
 | Generic query API             | **Working.** `QuerySerializer` + per-model field allowlists; `factory.service.ts` rebuilt but not yet called. |
-| Build / typecheck             | **Passing.** `tsc --noEmit` 0 errors, `npm run build` succeeds (verified 2026-09-03).      |
+| Build / typecheck             | **Passing.** `tsc --noEmit` 0 errors, `npm run build` succeeds, lint 0 errors (verified 2026-09-06). |
 | Tests                         | None. No test runner installed.                                                           |
 | CI                            | None.                                                                                     |
 
@@ -86,7 +88,10 @@ Ordered roughly by priority. Check off and date items as they land.
 **P1 — features**
 
 - [ ] Delete operations for expenses, assets, and both category types.
-- [ ] Build out `/dashboard/charts` — it's the natural home for the deeper Unovis work.
+- [ ] Build out `/dashboard/charts` — it's the natural home for the deeper Unovis work. `getNetWorthTrend`
+      now returns a real series, so the net-worth-over-time chart has its data waiting.
+- [ ] Surface net worth on the dashboard — a widget over `getNetWorth`, and the trend chart over
+      `getNetWorthTrend`. The actions exist and are tested; nothing renders them yet.
 - [ ] Persist dashboard layout server-side per user instead of `localStorage` (add a model, or a JSON
       column on `User`).
 - [ ] Widget add/remove, not just rearrange.
@@ -157,6 +162,48 @@ member 'PrismaClient' / 'Prisma'` plus cascading implicit-`any`s. These disappea
 `npx prisma generate`, which must be run before typechecking. Don't "fix" them in source.
 
 ## 6. Recently resolved
+
+**Phase 3 — Investments (2026-09-06, branch `limit-testing`)**
+
+Three additive migrations: `20260906221031_phase3_investments`,
+`20260906223622_phase3b_limits_match_and_overrides`, `20260906224500_phase3c_match_source_link`.
+No existing table was altered except by `ADD COLUMN`; `folio_dev`'s hand-entered data was verified
+intact after each one, with backups at `/tmp/folio_dev_pre_phase3.sql` and `_pre_phase3b.sql`.
+
+- **Models:** `Investment`, `InvestmentContribution`, `InvestmentContributionException`,
+  `InvestmentSnapshot`, `ContributionLimit`. Only `InvestmentAccountType`, `ContributionKind`,
+  `ContributionLimitGroup`, `HsaCoverage` and `ContributionLimitVariant` are new enums —
+  `PostingStatus`, `EarningFrequency` and `OccurrenceExceptionAction` are reused for the third
+  time, so earnings, debts and contributions all run one posting flow. `src/lib/recurrence.ts` is
+  called unmodified apart from an additive `OCCURRENCES_PER_MONTH` map.
+- **Snapshot history**, per the design decision that accounts hold a current balance *plus*
+  history. It is the only record of growth that arrived through the market rather than a
+  contribution, and it is what `getNetWorthTrend` reads.
+- **Net worth** (`getNetWorth`, `getNetWorthTrend`) — Assets + Investments − Debts. Server actions
+  only; nothing renders them yet.
+- **Worth page renamed to Assets**, via `git mv` so history is preserved. Route
+  `/dashboard/assets`; `/dashboard/investments` added beside it.
+- **Contribution limits, employer match, kinds and rate of return** (added at the owner's request,
+  superseding the original Phase 3 scope limit). Limits attach to a *group*, so a Roth and a
+  Traditional IRA share one cap rather than each getting a full one. Only `EMPLOYEE` money uses
+  annual room — employer match has its own cap, rollovers count against nothing, and withdrawals
+  do not give room back. **No IRS figures are hardcoded**: limits are rows the owner enters, and a
+  year with no row reports "no limit set" rather than assuming a stale number.
+- **Employer match posts alongside the contribution that earned it**, linked by
+  `sourceContributionId`, capped at the year's remaining match — so front-loading behaves the way
+  a real plan does. Cancelling or deleting the contribution reverses the match with it.
+- **Manual overrides throughout**, at the owner's explicit request: `updateContribution`,
+  `updateDebtPayment` (Phase 2) and `setBucketOpeningBalance` (Phase 1) were added so every stored
+  figure can be corrected, and each reconciles everything the original posting touched — balance,
+  linked expense, snapshot — rather than just the row. `ContributionLimit.contributedAdjustment`
+  is the signed override for derived year-to-date totals.
+- **Verified by calling the real server actions** against a scratch database with `@/lib/auth`
+  stubbed — 79 checks for Phase 3, then 81 for the limits/match/override work including regression
+  checks on the rewritten posting path. Not transcription: every assertion ran the exported action.
+  The scratch DB has since been dropped.
+- **Not built, still in Long term goals:** vesting schedules, the match true-up warning, Roth
+  income phase-out (MAGI) eligibility, prior-year contribution windows, catch-up contributions
+  (deferred — it needs a birth year on `User`), and projection rollups.
 
 **Phase 0 — groundwork (2026-09-01, branch `feature/phase0-groundwork`, uncommitted at time of writing)**
 

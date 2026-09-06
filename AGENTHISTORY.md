@@ -361,3 +361,88 @@ and restarted the `folio-db-1` container.
 - Phase 3 (Investments) not started. B6, B9-B12, B14-B16 still open.
 - `README.md` § "Coding with Agents" still tells agents the repo doesn't compile.
 - No `.prettierignore` yet.
+
+---
+
+## 2026-09-06 — Phase 3 (Investments), then contribution limits, employer match and app-wide overrides
+
+**Agent:** Claude Opus 5 (Claude Code) · **Branch:** `limit-testing` · **Commits:** none — uncommitted at time of writing
+
+**Task:** Build Phase 3 (Investments) including the snapshot history table, rename Worth to Assets,
+and compute net worth. Then, on a second instruction, add contribution limits, employer match, and
+"any other optional things I may be missing", followed by a full doc pass.
+
+**Changed:** three additive migrations (`phase3_investments`, `phase3b_limits_match_and_overrides`,
+`phase3c_match_source_link`); new `src/app/dashboard/investments/` (8 files), `types/investment.ts`,
+`src/lib/contribution-limits.ts`; net worth added to `summary-db.ts`; `worth/` → `assets/` via
+`git mv`; additive edits to `recurrence.ts`, `constants.ts`, `query-fields.ts`, `DashboardNavbar.tsx`,
+and one new override action each in `debts/actions.tsx` and `budget/actions.tsx`.
+
+**Learned:**
+
+- **Server actions can be exercised for real without a browser.** `@/lib/auth` was aliased to a stub
+  exporting `getUserId` through a throwaway `tsconfig.verify.json`, then the actual exported actions
+  were called under `npx tsx` against a scratch DB. This closes the gap the Phase 2 entry flagged
+  ("the author's checks transcribed the logic rather than invoking the actions") and cost about
+  twenty minutes. 79 checks for Phase 3, 81 for the follow-up. Worth reaching for again.
+- **Phase 1's enums have now been reused three times.** Earnings, debts and contributions share
+  `PostingStatus`, `EarningFrequency` and `OccurrenceExceptionAction`, and all three expand their
+  schedules through the same `recurrence.ts`. A fourth recurring feature should assume reuse.
+- **The domain has traps the schema has to prevent, not just record.** A Roth IRA and a Traditional
+  IRA share one annual cap; modelling limits per account would report double the room and invite a
+  penalty that repeats yearly. Withdrawals do not restore contribution room. Rollovers and employer
+  money count against nothing personal. These live in `src/lib/contribution-limits.ts` so there is
+  one answer, not one per call site.
+- **No IRS figures were hardcoded anywhere, deliberately.** The agent could not verify 2026 amounts,
+  and a stale constant in source would still look authoritative. Limits are owner-entered rows;
+  an unentered year reports "no limit set" rather than implying room.
+- **A derived figure needs a signed override, not a replacement.** `contributedAdjustment` adds to
+  the computed year-to-date total (negative to correct an overcount), which handles both "I paid
+  into a previous employer's plan" and "this number is wrong" without a second source of truth.
+
+**Traps / dead ends:**
+
+- **`prisma migrate dev` cannot run non-interactively once it wants to warn.** Adding a `@unique` to
+  an existing table made it demand confirmation and abort with "environment is non-interactive". The
+  way through is Phase 0's: `prisma migrate diff --from-schema-datasource --to-schema-datamodel
+  --script` into a hand-made migration folder, then `migrate deploy`. Check the table is empty first.
+- **`prisma format` reflows alignment across the whole schema**, so a small model addition shows as
+  ~240 changed lines. `git diff -w` is what tells you whether anything was actually removed — it read
+  165 insertions, 0 deletions, which is what "purely additive" needs to mean.
+- **A `new Date()` computed in a component body and then added to a `useCallback` dep array creates a
+  refetch loop** — new identity every render, and the load effect depends on that callback. Holding
+  it in `useState(() => …)` makes it stable. The lint warning was right; the naive fix was worse than
+  the warning.
+- **Adding a self-relation for the employer match required care around cascade order.** The match row
+  is `onDelete: Cascade` from the contribution that earned it, so its effect on the balance has to be
+  reversed *before* the source is deleted, or the row vanishes leaving the money behind.
+- One verification failure was the test, not the code: the debt add-back was asserted at the August
+  month-end when the payment fell before it. Check which boundary a date actually lands on.
+
+**Verified** (by running it, not by reading it):
+
+- 79 + 81 checks against a scratch DB, covering materialisation counts across monthly and biweekly
+  cadences, idempotency across repeat sweeps, expense linkage only where money leaves the account,
+  match capping and cascade-on-cancel, the shared IRA cap, withdrawal/rollover semantics, snapshot
+  writes, back-dated corrections, net worth and its trend, override reconciliation on contributions,
+  debt payments and bucket openings, plus ~20 tenancy checks against a second user.
+- `tsc --noEmit` 0 errors, `npm run build` passes with `/dashboard/assets` and
+  `/dashboard/investments`, `npm run lint` 0 errors (one pre-existing warning in
+  `expenses/categories/actions.tsx`).
+- `folio_dev` intact after every migration: 1 user / 2 expenses / 2 assets / 3 earnings / 2 buckets.
+  Backups at `/tmp/folio_dev_pre_phase3.sql` and `/tmp/folio_dev_pre_phase3b.sql`.
+- Scratch DB `folio_phase3_test` dropped; harness files and `tsconfig.verify.json` deleted.
+
+**Left undone:**
+
+- **Nothing is committed.** Phase 3 and the limits/match work sit uncommitted on `limit-testing`.
+- **No browser click-through of the investments UI.** Every server action has been run directly, but
+  button-to-action wiring has not been exercised by hand.
+- The Phase 3 scope limit in `CURRENT.md` § Current task said "no contribution limits, no
+  employer-match tracking, no per-account growth rates". The owner overrode it deliberately, and
+  gave explicit permission (rule 6) to mark Phase 3 complete and record that the limit was
+  superseded. Both edits are in.
+- Deferred by the owner: catch-up contributions (needs a birth year on `User`), vesting, match
+  true-up warning, Roth MAGI phase-out, prior-year contribution windows.
+- B6, B9-B12, B14-B16 still open. `README.md` § "Coding with Agents" still says the repo does not
+  compile. No `.prettierignore` yet.

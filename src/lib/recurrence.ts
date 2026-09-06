@@ -168,3 +168,18 @@ export const FREQUENCY_LABELS: Record<EarningFrequency, string> = {
   [EarningFrequency.SEMI_MONTHLY]: "Twice a month",
   [EarningFrequency.MONTHLY]: "Monthly",
 };
+
+/**
+ * Average number of times each frequency fires in a month, for normalising a per-occurrence
+ * amount to a monthly rate. Weekly and biweekly use 52 and 26 weeks a year over 12 months, so a
+ * biweekly figure is not simply doubled — three-paycheck months are averaged in.
+ *
+ * Advisory only, exactly like the trailing income averages: this is for "what does this cost me
+ * a month" headline figures, never for anything that moves money.
+ */
+export const OCCURRENCES_PER_MONTH: Record<EarningFrequency, number> = {
+  [EarningFrequency.WEEKLY]: 52 / 12,
+  [EarningFrequency.BIWEEKLY]: 26 / 12,
+  [EarningFrequency.SEMI_MONTHLY]: 2,
+  [EarningFrequency.MONTHLY]: 1,
+};

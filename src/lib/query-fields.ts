@@ -54,3 +54,21 @@ export type DebtQueryField = (typeof DEBT_QUERY_FIELDS)[number];
 
 export const DEBT_PAYMENT_QUERY_FIELDS = ["amount", "date", "status", "debtId"] as const;
 export type DebtPaymentQueryField = (typeof DEBT_PAYMENT_QUERY_FIELDS)[number];
+
+export const INVESTMENT_QUERY_FIELDS = [
+  "title",
+  "description",
+  "accountType",
+  "institution",
+  "balance",
+  "contributionAmount",
+  "frequency",
+  "anchorDate",
+  "isActive",
+  "bucketId",
+  "categoryId",
+] as const;
+export type InvestmentQueryField = (typeof INVESTMENT_QUERY_FIELDS)[number];
+
+export const INVESTMENT_CONTRIBUTION_QUERY_FIELDS = ["amount", "date", "status", "investmentId"] as const;
+export type InvestmentContributionQueryField = (typeof INVESTMENT_CONTRIBUTION_QUERY_FIELDS)[number];
