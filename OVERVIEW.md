@@ -5,7 +5,7 @@ tick off tasks, add newly found bugs, move fixed items to Recently Resolved.
 
 For the file-by-file map, see `INDEX.md`. For per-session agent notes, see `AGENTHISTORY.md`.
 
-**Last updated:** 2026-09-01 · **Branch:** `limit-testing` · **Version:** 0.0.1
+**Last updated:** 2026-09-03 · **Branch:** `fix/b5-b19-tenancy-and-dates` · **Version:** 0.0.1
 
 ---
 
@@ -48,10 +48,11 @@ the product vision — see `CURRENT.md`.)
 | Dashboard widgets             | Working: stats bar, category donut, spending bar chart, Unovis expense-vs-asset area chart. Layout persists in `localStorage`. |
 | Earnings (`/dashboard/earnings`) | **New (Phase 1).** Recurring rules, auto-posted occurrences with confirm/cancel, skip+override on projected slots, trailing income averages. |
 | Budget (`/dashboard/budget`)  | **New (Phase 1).** Envelope buckets w/ per-bucket rollover, monthly periods, allocation from confirmed income, green/yellow/red health. |
+| Debts (`/dashboard/debts`)    | **New (Phase 2).** Debts w/ interest rate, minimum + actual payment, scheduled auto-posting that writes a linked Expense and decrements the balance, skip/override, projected schedule capped to payoff. |
 | Charts page (`/dashboard/charts`) | Stub — renders a title only.                                                          |
 | Settings page                 | UI only. Display name, password change, and delete account do nothing.                    |
 | Generic query API             | **Working.** `QuerySerializer` + per-model field allowlists; `factory.service.ts` rebuilt but not yet called. |
-| Build / typecheck             | **Passing.** `tsc --noEmit` 0 errors, `npm run build` succeeds (Phase 0, 2026-09-01).      |
+| Build / typecheck             | **Passing.** `tsc --noEmit` 0 errors, `npm run build` succeeds (verified 2026-09-03).      |
 | Tests                         | None. No test runner installed.                                                           |
 | CI                            | None.                                                                                     |
 
@@ -105,17 +106,15 @@ Ordered roughly by priority. Check off and date items as they land.
       Phase 0 work on it; that landed as `d52de80` instead.
 - [ ] `README.md` § "Coding with Agents" holds a bootstrap prompt that still claims the repo doesn't
       typecheck or build, and points at B1-B3. Refresh or remove it.
+- [ ] Add a `.prettierignore` (or a scoped format script). `npm run prettier` currently reformats the
+      four `.md` docs, `README.md`, `.vscode/settings.json` and `src/lib/querys/types.ts`, which
+      collides with rule 4 and produces noisy diffs.
 
 ## 5. Known issues & bugs
 
 Every blocking issue is resolved — the repo typechecks and builds. See § 6.
 
-### Security
-
-**B5 — `getCategoryById` in `expenses/categories/actions.tsx` ignores `userId`.** It takes `userId` as a
-parameter but queries `findFirst({ where: { id } })` only. A user who supplies another user's category
-id can attach their expense to it. The asset version (`worth/categories/actions.tsx`) does this
-correctly with `where: { id, userId }`. **Fix the expense one to match.** Still open as of 2026-09-01.
+No security issues are outstanding — B5 was fixed on 2026-09-03.
 
 ### Non-blocking but real
 
@@ -151,12 +150,6 @@ the query returns **every** row instead of the matching subset, with no error. N
 Phase 0 added `boolean` to `FilterOpsSchema.eq` and `isCash` to `ASSET_QUERY_FIELDS`, so
 Fixed in Phase 1.
 
-**B19 — off-by-one date in the expense and asset edit pickers.** `DatePickerInput` in
-`ExpenseTable.tsx` and `AssetTable.tsx` receives a `@db.Date` value as a UTC-midnight `Date` and renders
-it with local-time accessors, so **editing a row shows the previous day** for anyone west of UTC. The
-read-only text column is correct because it formats via `toISOString()`. Fix by routing both through
-`src/lib/dates.ts` and `formatDay`, which the Phase 1 pages already do. Found during the Phase 1 review.
-
 ### Environment note (not a code bug)
 
 A fresh clone reports ~20 extra type errors of the form `Module '"@prisma/client"' has no exported
@@ -187,6 +180,29 @@ member 'PrismaClient' / 'Prisma'` plus cascading implicit-`any`s. These disappea
 - **`ExpenseSchema.categoryId` is now `.nullable()`** — Prisma's column is `String?` and
   `getUserExpenses` has always returned `null` for uncategorised rows. A real pre-existing error that
   B1 was hiding.
+
+**Phase 2 — Debts (2026-09-03, branch `fix/b5-b19-tenancy-and-dates`, uncommitted)**
+
+- `Debt`, `DebtPayment`, `DebtPaymentException` in one additive migration. Verified: all eight `ALTER`
+  statements are `ADD CONSTRAINT` on the three **new** tables — no existing table was altered.
+- **No new enums.** `PostingStatus`, `EarningFrequency` and `OccurrenceExceptionAction` are reused, so
+  debts and earnings share one posting flow rather than forking into a parallel implementation.
+  `src/lib/recurrence.ts` is called unmodified through a small adapter; no Phase 1 file was edited.
+- Posting is transactional: creates an `Expense` stamped with the debt's `bucketId` and `categoryId`,
+  links it via `expenseId @unique`, and decrements `Debt.balance`. The amount is capped at the
+  remaining balance so the final payment lands on exactly zero. Bucket spend is derived by summing
+  expenses, so debt payments reach the bucket with no second counter to drift.
+- Verified by the author against a **separate scratch database**, never `folio_dev` (22/22 checks).
+  That scratch DB has since been dropped.
+- **Not built, by design:** amortization, extra-payment slider, payoff curve, avalanche/snowball.
+
+**B5 and B19 fixed (2026-09-03)**
+
+- **B5** — `getCategoryById` in `expenses/categories/actions.tsx` now queries
+  `findFirst({ where: { id, userId } })`, matching the asset version. The tenancy hole is closed.
+- **B19** — the expense and asset edit pickers now take a `YYYY-MM-DD` string via `toDateInputValue`
+  instead of a UTC-midnight `Date`, so editing no longer shows the previous day west of UTC. Three
+  inline `toISOString().split("T")[0]` variants were folded into the shared helper.
 
 **Phase 1 — Earnings + budget allocation (2026-09-01, branch `limit-testing`, uncommitted)**
 

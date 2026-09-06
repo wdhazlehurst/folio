@@ -295,3 +295,69 @@ the doc pass. (Phase 0 landed as `d52de80` before this.)
 - Two design calls were made without asking, against the prompt's instruction: deleting a
   rule-generated occurrence writes a SKIP exception, and allocating an earning whose month has closed
   funds the current month. Both disclosed, both accepted by the owner.
+
+---
+
+## 2026-09-03 — B5/B19 fixes and Phase 2 (Debts) reviewed; scratch DB cleanup rule added
+
+**Agent:** Claude Opus 5 (Claude Code) · **Branch:** `fix/b5-b19-tenancy-and-dates` · **Commits:** none — both the fixes and Phase 2 are uncommitted
+
+**Task:** Write the kickoff prompts for the B5/B19 fixes and for Phase 2; separate threads executed
+both; review each and do the doc pass.
+
+**Changed (this thread):** documentation only — `INDEX.md` (new rule 8, Phase 2 data model and file
+map), `CURRENT.md`, `OVERVIEW.md`, this file. Also dropped the leftover `folio_phase2_test` database
+and restarted the `folio-db-1` container.
+
+**Learned:**
+
+- **Phase 2 reused Phase 1's enums rather than adding its own** — `PostingStatus`, `EarningFrequency`
+  and `OccurrenceExceptionAction` are shared, so debts and earnings run one posting flow. Phase 3
+  should look for the same reuse before defining anything new.
+- **Debt payments reach a bucket without a second mechanism.** Posting stamps the debt's `bucketId`
+  onto the generated `Expense`, and bucket spend is already derived by summing expenses — so there is
+  no counter that can drift.
+- **A slot skipped because the balance was exhausted is not permanently skipped.** If the balance later
+  rises (a cancellation or a manual correction) that payment posts. Deliberate; the materialiser's
+  lookback bounds how far back it can reach.
+- `npm run prettier` reformats the whole repo including the four `.md` docs and `README.md`, which
+  collides with rule 4. Format only what you changed until a `.prettierignore` exists.
+
+**Traps / dead ends:**
+
+- **`npx prisma migrate status` reported `P1001: Can't reach database server`** while raw TCP,
+  `node net.connect`, and `docker exec psql` all connected fine to the same host and port. Only the
+  Prisma engine binary failed, and only from this sandboxed shell — it had worked earlier the same day.
+  If this recurs, don't chase it as a database fault: verify migration state directly with
+  `SELECT ... FROM _prisma_migrations` and move on.
+- The `folio-db-1` container was missing at review time. It had been shut down by the owner, not lost —
+  the `folio_db_data` volume persists, so `docker compose up -d` restores everything. Check the volume
+  before assuming data loss.
+
+**Verified** (re-ran rather than trusting the reports):
+
+- B5: the one-line scope change is in place and matches the asset version. Confirmed the only caller
+  passes a category **id** (the form sets both `category` and `categoryId` to the Select's value), and
+  that the single existing category belongs to the one user — so the tightened lookup can't break
+  adding an expense.
+- B19: reproduced the premise on this box (TZ `EDT -0400`, rows dated `2026-08-31T00:00:00.000Z`
+  rendering as `Sun Aug 30` under the old code) and confirmed the new string path round-trips stably.
+- Phase 2: `tsc --noEmit` 0 errors; `npm run build` passes with `/dashboard/debts`; lint 0 errors;
+  9 migration folders, 9 applied, 0 failed or rolled back; all three `Debt` tables present.
+- Migration additivity checked statement by statement — all eight `ALTER`s are `ADD CONSTRAINT` on the
+  new tables. `git diff` confirms no Phase 1 file was touched; the only changes to existing schema
+  models are Prisma realignment plus relation back-references.
+- Tenancy audited across all 18 debt actions (19 auth calls). Every query is scoped by `userId` or
+  derived from a `userId`-scoped fetch; the query API goes through `QuerySerializer`.
+- `folio_dev` intact throughout: `1 user / 2 expenses / 2 assets / 3 earnings / 1 rule / 2 buckets`.
+- **Not verified by anyone:** the browser click-through. Phase 2's server actions have never run under
+  a real session — the author's 22 checks transcribed the logic against a scratch DB rather than
+  invoking the actions. Schema, constraints and algorithm are proven; button-to-action wiring is not.
+
+**Left undone:**
+
+- **Nothing is committed.** `fix/b5-b19-tenancy-and-dates` now holds both the B5/B19 fixes and all of
+  Phase 2 — worth separating before merge.
+- Phase 3 (Investments) not started. B6, B9-B12, B14-B16 still open.
+- `README.md` § "Coding with Agents" still tells agents the repo doesn't compile.
+- No `.prettierignore` yet.

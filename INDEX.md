@@ -38,6 +38,12 @@ judgement disagree, follow the rule or stop and ask.
    first (`pg_dump`), scope deletes to ids your own script created rather than to `userId`, and assert
    that pre-existing rows survived before you report success. The dev database holds hand-entered data
    that cannot be regenerated.
+8. **Scratch databases are encouraged — but drop them when you're done.** Verifying against a separate
+   database (e.g. `folio_phase2_test`) instead of `folio_dev` is the right way to exercise real logic
+   without risking real data, and Phase 2 was verified exactly that way. Creating one needs no
+   permission. Leaving one behind does: finish by dropping it
+   (`docker exec folio-db-1 psql -U postgres -c 'DROP DATABASE <name>;'`) and say in your report that
+   you did. Same for dev servers you start — shut them down rather than leaving ports held.
 
 ## The four docs
 
@@ -136,7 +142,7 @@ live next to their component instead.
 ### `prisma/`
 
 - `schema.prisma` — datasource `postgresql`, generator `prisma-client-js`. Models below.
-- `migrations/` — 8 migrations, latest `20260901164154_phase1_earnings_and_budget`.
+- `migrations/` — 9 migrations, latest `20260902232410_phase2_debts`.
 
 **Data model** (all IDs are `uuid` strings; money is `@db.Decimal(12, 2)` → Prisma `Decimal`; `date` is `@db.Date`):
 
@@ -180,6 +186,29 @@ BucketAllocation  money moved from one CONFIRMED Earning into one bucket.
                   never projections" — a projected occurrence has no row, so it has no id to cite.
 ```
 
+**Phase 2 — debts** (no new enums; `PostingStatus`, `EarningFrequency` and
+`OccurrenceExceptionAction` are reused deliberately, so debts and earnings share one posting flow):
+
+```
+Debt                  balance, interestRate Decimal(6,4), minimumPayment, paymentAmount (what will
+                      ACTUALLY be paid, may exceed the minimum), anchorDate, endDate?, isActive,
+                      lastMaterializedThrough watermark, bucketId?, categoryId?
+DebtPayment           mirrors Earning: amount, date, scheduledDate?, status, confirmedAt,
+                      expenseId? @unique  ← the generated Expense
+                      @@unique([debtId, scheduledDate])  ← idempotent posting, same trick as Earning
+DebtPaymentException  structurally identical to EarningException (SKIP / OVERRIDE)
+```
+
+Posting a debt payment is transactional: it creates an `Expense` stamped with the debt's `bucketId`
+and `categoryId`, links it via `expenseId`, and decrements `Debt.balance`. Because bucket spend is
+derived by summing expenses, debt payments land in the bucket with no second counter to drift. The
+amount is capped at the remaining balance, so the final payment pays the debt to exactly zero.
+
+**Behaviour worth knowing:** a scheduled slot passed over because the balance was exhausted is *not*
+permanently skipped — if the balance later rises (a cancellation, or a manual correction), that
+payment posts. Deliberate: losing it silently would be worse. The materialiser's lookback bounds how
+far back this can reach.
+
 Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expense has **no**
 `description` column despite the type allowing one (see `OVERVIEW.md`).
 
@@ -191,6 +220,7 @@ Assets and Expenses are structurally near-identical; `Asset` adds `isCash`. Expe
 | `expense.ts`      | Zod `ExpenseSchema`/`ExpenseCategorySchema` + inferred types, plus `NewExpense`/`NewExpenseCategory` interfaces (client→server payloads). |
 | `asset.ts`        | Same shape for assets: `AssetSchema`, `AssetCategorySchema`, `NewAsset`, `NewAssetCategory`.        |
 | `earning.ts`      | Zod schemas + view types for `EarningRule`/`Earning`/exceptions (`NewEarningRule`, `NewEarning`, `EarningRuleView`, `EarningView`, `ProjectedOccurrenceView`, `IncomeAverage`). |
+| `debt.ts`         | Zod schemas + view types for debts and payments (`NewDebt`, `DebtView`, `DebtPaymentView`, `ProjectedDebtPaymentView`, `RecordDebtPaymentSchema`). |
 | `budget.ts`       | Zod schemas + view types for buckets (`NewBucket`, `BucketView`, `BucketHealth` = ok\|warning\|overdrawn, `AllocateEarningInput`). |
 | `next-auth.d.ts`  | Augments NextAuth `User`/`Session`/`JWT` with `id`, `email`, `role`.                                |
 | `types.d.ts`      | Older, conflicting NextAuth `User` augmentation. Effectively dead (see OVERVIEW). Not typechecked because of `skipLibCheck`. |
@@ -250,6 +280,9 @@ dashboard/charts/page.tsx  stub — just a "Charts" title
 dashboard/earnings/        Earnings: rules table, pending-confirmation banner, occurrence table,
                            projected table w/ skip+override, income averages card
 dashboard/budget/          Budget buckets: bucket cards (green/yellow/red), allocation panel
+dashboard/debts/           Debts: debt list, payments table, projected-payments table w/ skip+override,
+                           record-a-payment form. Projections cap against a running balance and stop
+                           at payoff — the posting rule applied to the display, NOT amortization.
 dashboard/settings/        SettingsPage + DisplayNameSetting(+WithSession) — UI only, no persistence yet
 dashboard/expenses/        expenses CRUD page (see below)
 dashboard/worth/           assets CRUD page (see below)
@@ -357,6 +390,7 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 | Recurring-schedule maths            | `src/lib/recurrence.ts` (pure) — never reimplement per feature |
 | Any `@db.Date` arithmetic           | `src/lib/dates.ts` (UTC-safe); display via `formatDay`     |
 | Earnings / income averages          | `src/app/dashboard/earnings/actions.tsx`                   |
+| Debts / payment schedule            | `src/app/dashboard/debts/actions.tsx`                      |
 | Budget buckets / allocation         | `src/app/dashboard/budget/actions.tsx`                     |
 | Validation rules                    | `src/lib/schemas.ts`, `src/lib/validators.ts`              |
 | Expense CRUD                        | `src/app/dashboard/expenses/actions.tsx`                   |
@@ -364,10 +398,8 @@ recipe styles using `light-dark(var(--mantine-color-…))`.
 
 ## Status
 
-The repo **typechecks and builds** as of 2026-09-01 (Phases 0 and 1 complete). Run `npx prisma generate`
+The repo **typechecks and builds** as of 2026-09-03 (Phases 0, 1 and 2 complete). Run `npx prisma generate`
 before any typecheck or you'll see ~20 phantom `@prisma/client` errors that aren't real.
 
 Read `CURRENT.md` for what's actively being worked on, the settled design decisions, and known minor
-bugs and gotchas. `OVERVIEW.md` § 5 has the remaining issues — note **B5**, a real tenancy bug in
-`expenses/categories/actions.tsx#getCategoryById`, and **B19**, an off-by-one date in the expense and
-asset edit pickers.
+bugs and gotchas. `OVERVIEW.md` § 5 has the remaining issues. **B5 and B19 are now fixed** — nothing blocking remains.

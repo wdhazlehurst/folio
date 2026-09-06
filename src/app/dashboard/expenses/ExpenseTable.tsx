@@ -6,6 +6,7 @@ import { IconSend } from "@tabler/icons-react";
 import { DatePickerInput } from "@mantine/dates";
 import { DIRTY_COLOR } from "@/app/dashboard/_widgets/chart-colors";
 import { Expense, ExpenseCategory } from "@/types/expense";
+import { toDateInputValue } from "@/lib/format";
 
 type EditableField = "title" | "amount" | "category" | "date";
 
@@ -108,9 +109,10 @@ function EditableCell({
     if (field === "date") {
       return (
         <DatePickerInput
-          value={draft?.date ? new Date(draft.date) : null}
+          value={toDateInputValue(draft?.date)}
           onBlur={onStopEditing}
           onChange={(d) => {
+            // `d` is `YYYY-MM-DD`, which `new Date` parses as UTC midnight — the shape a @db.Date wants.
             if (d) onDraftChange("date", new Date(d));
           }}
         />
@@ -157,7 +159,7 @@ function EditableCell({
         break;
       }
       case "date":
-        displayValue = draft.date ? new Date(draft.date).toISOString().split("T")[0] : "";
+        displayValue = toDateInputValue(draft.date) ?? "";
         break;
     }
   }
@@ -315,7 +317,7 @@ export default function ExpenseTable({ expenses, categories, onUpdateExpense }: 
             {...cellProps}
             rowId={row.id!}
             field="date"
-            value={row.date instanceof Date ? row.date.toISOString().split("T")[0] : row.date}
+            value={toDateInputValue(row.date) ?? ""}
             isEditing={isCellEditing("date")}
             isDirty={isFieldDirty(row.id!, "date")}
           />

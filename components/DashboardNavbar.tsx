@@ -6,6 +6,7 @@ import {
   IconHome,
   IconCashBanknote,
   IconWallet,
+  IconCreditCard,
 } from "@tabler/icons-react";
 import { Code, Group } from "@mantine/core";
 import classes from "@/css/NavbarSimple.module.css";
@@ -20,6 +21,7 @@ const data = [
   { link: "/dashboard/earnings", label: "Earnings", icon: IconCashBanknote, exact: false },
   { link: "/dashboard/expenses", label: "Expenses", icon: IconReceipt2, exact: false },
   { link: "/dashboard/budget", label: "Budget", icon: IconWallet, exact: false },
+  { link: "/dashboard/debts", label: "Debts", icon: IconCreditCard, exact: false },
   { link: "/dashboard/worth", label: "Worth", icon: IconUserDollar, exact: false },
   { link: "/dashboard/charts", label: "Charts", icon: IconChartInfographic, exact: false },
   { link: "/dashboard/settings", label: "Settings", icon: IconSettings, exact: false },

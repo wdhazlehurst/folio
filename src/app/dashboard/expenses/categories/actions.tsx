@@ -49,7 +49,7 @@ export async function updateExpenseCategory(data: ExpenseCategory): Promise<Acti
 
 export async function getCategoryById(userId: string, id: string): Promise<string | null> {
   const category = await dbClient.expenseCategory.findFirst({
-    where: { id },
+    where: { id, userId },
   });
 
   return category ? category.id : null;

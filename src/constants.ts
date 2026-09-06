@@ -31,3 +31,8 @@ export const MIN_AVERAGE_COVERAGE_DAYS = DAYS_PER_MONTH;
 
 /** A bucket turns yellow once less than this fraction of its funded total is left. */
 export const BUCKET_WARNING_RATIO = 0.2;
+
+// --- Phase 2: debts ---
+
+/** How far ahead `/dashboard/debts` projects unmaterialised payments. */
+export const DEBTS_PROJECTION_HORIZON_DAYS = 90;

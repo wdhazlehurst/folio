@@ -7,7 +7,7 @@ bugs not worth a full entry in `OVERVIEW.md`.
 the bottom is archive — skip it unless something there is directly relevant to what you've been asked
 to do.
 
-**Last updated:** 2026-09-01 (Phase 1 complete)
+**Last updated:** 2026-09-03 (Phase 2 complete)
 
 ---
 
@@ -60,7 +60,14 @@ coupled), then vertical slices for Debts and Investments.
   notably, bucket funding from actual income is enforced *structurally* (a projected occurrence has no
   row, so `BucketAllocation.earningId` has nothing to reference), and the rolling averages are wired
   nowhere near bucket funding.
-- **Phase 2 — Debts.** Full vertical slice: schema → actions → UI, wired into allocation.
+- **Phase 2 — Debts.** ✅ **Complete 2026-09-03** (branch `fix/b5-b19-tenancy-and-dates`, uncommitted).
+  `Debt`, `DebtPayment`, `DebtPaymentException` in one additive migration — **no new enums**, because
+  `PostingStatus`/`EarningFrequency`/`OccurrenceExceptionAction` are reused so debts and earnings share
+  a single posting flow. `src/lib/recurrence.ts` is called unmodified through a small adapter. Posting
+  is transactional: creates an `Expense` carrying the debt's `bucketId` + `categoryId`, links it via
+  `expenseId`, and decrements the balance, capped so the final payment lands on exactly zero. Route
+  `/dashboard/debts`. Deliberately **not** built: amortization, extra-payment slider, payoff curve,
+  avalanche/snowball — those stay in Long term goals.
 - **Phase 3 — Investments.** Basic model only (see Scope limit). Rename the Worth page to Assets here.
 
 ### Design decisions — resolved 2026-08-31
@@ -247,7 +254,8 @@ Small stuff — cosmetic, dead code, papercuts. The security issue (B5) lives in
 resolved items are recorded in `OVERVIEW.md` § 6. IDs match `OVERVIEW.md` numbering; full detail for
 each is there.
 
-**Closed by Phase 0:** B1, B2, B3, B4, B7. **Closed by Phase 1:** B17, B18. **Closed by frontend cleanup:** B8, B13.
+**Closed by Phase 0:** B1, B2, B3, B4, B7. **Closed by Phase 1:** B17, B18. **Closed by frontend
+cleanup:** B8, B13. **Closed 2026-09-03:** B5 (tenancy), B19 (date picker).
 
 | ID  | Bug                                                                                                            |
 | --- | ---------------------------------------------------------------------------------------------------------------- |
@@ -257,7 +265,6 @@ each is there.
 | B12 | `postcss-preset-mantine` is installed but there's no `postcss.config.mjs`. Nothing breaks today, but Mantine mixins (`@mixin dark`, `rem()`) will silently no-op. |
 | B14 | `Dockerfile` uses `RUN chmod +X` (capital X) on the entrypoint, which may leave it non-executable. Should be `+x`. |
 | B15 | `new PrismaClient()` at module scope with no `globalThis` singleton — leaks connections across dev HMR reloads.   |
-| B19 | `DatePickerInput` in `ExpenseTable.tsx` / `AssetTable.tsx` is handed a UTC-midnight `Date` and renders it in local time, so **editing shows the previous day** west of UTC. The read-only text is fine (it goes through `toISOString()`). Fix by routing both through `src/lib/dates.ts` / `formatDay`, as the Phase 1 pages do. |
 | —   | Branch name typo: `feature/dashboard-integeration`. Harmless; note before merging.                                |
 
 ### Gotchas (not bugs — don't "fix" these)
@@ -266,6 +273,10 @@ each is there.
   inside `<script>self.__next_f.push(...)` — the RSC flight payload where Next.js 15 ships its default
   not-found boundary to the client. It is never rendered. Stripping `<script>` tags leaves only the
   landing page DOM. Viewing page source and finding "404" is misleading.
+- **`npm run prettier` reformats the whole repo**, including the four `.md` docs, `README.md`,
+  `.vscode/settings.json` and `src/lib/querys/types.ts`. That collides with rule 4 (don't touch docs
+  unprompted) and produces noisy diffs. Format only the files you actually changed until a
+  `.prettierignore` exists.
 - **A fresh clone reports ~20 `Module '"@prisma/client"' has no exported member` errors.** The generated
   client isn't committed. Run `npx prisma generate` first. These are not source bugs.
 
